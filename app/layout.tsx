@@ -23,7 +23,6 @@ export const metadata: Metadata = {
   ],
   creator: "PIONEERS!! Team",
   robots: "index, follow",
-  canonical: appUrl,
   alternates: {
     canonical: "/",
   },
