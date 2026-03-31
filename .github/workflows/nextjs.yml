@@ -23,8 +23,7 @@ jobs:
         # 에러를 일으켰던 '자동 감지'를 빼고 가장 확실한 npm을 사용합니다.
         run: npm install
       - name: Build with Next.js
-        # 빌드가 실패해도 멈추지 않고 진행하는 비상구(|| true)를 설치했습니다.
-        run: npx next build || true
+        run: npx next build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
