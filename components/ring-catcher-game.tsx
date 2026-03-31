@@ -57,8 +57,8 @@ const RING_TYPES = [
 
 export function RingCatcherGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationFrameRef = useRef<number>()
-  const dropIntervalRef = useRef<NodeJS.Timeout>()
+  const animationFrameRef = useRef<number>(0)
+  const dropIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const lastDropTimeRef = useRef<number>(0)
   const audioContextRef = useRef<AudioContext | null>(null)
   const bgMusicOscillatorRef = useRef<OscillatorNode | null>(null)
