@@ -21,7 +21,7 @@ const BONUS_HEIGHT_THRESHOLD = 200
 export function PiStackGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const engineRef = useRef<PhysicsEngine | null>(null)
-  const animationFrameRef = useRef<number>()
+  const animationFrameRef = useRef<number>(0)
   const dropIntervalRef = useRef<NodeJS.Timeout>()
   const catcherIdRef = useRef<string>("catcher")
 
