@@ -14,10 +14,8 @@ function useChart() {
 }
 
 const Chart = RechartsPrimitive.ResponsiveContainer
-
 const ChartTooltip = RechartsPrimitive.Tooltip
 
-// 컴퓨터에게 hideLabel이 무엇인지 확실히 알려주는 부분입니다.
 interface CustomTooltipProps extends React.ComponentProps<typeof RechartsPrimitive.Tooltip> {
   hideLabel?: boolean;
 }
@@ -41,9 +39,6 @@ const ChartLegendContent = React.forwardRef<any, any>((props, ref) => null)
 ChartLegendContent.displayName = "ChartLegend"
 
 const ChartStyle = ({ id, config }: { id: string; config: any }) => null
-
-const Chart = RechartsPrimitive.ResponsiveContainer
-const ChartTooltip = RechartsPrimitive.Tooltip
 
 export {
   Chart,
