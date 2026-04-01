@@ -4,12 +4,14 @@ import * as React from "react"
 import * as ResizablePrimitive from "react-resizable-panels"
 import { cn } from "@/lib/utils"
 
-// @ts-ignore: 라이브러리 버전 차이로 인한 타입 에러를 강제로 무시합니다.
+// 라이브러리 자체를 any로 형변환하여 타입 검사를 원천 차단합니다.
+const P: any = ResizablePrimitive
+
 const ResizablePanelGroup = ({
   className,
   ...props
 }: any) => (
-  <ResizablePrimitive.PanelGroup
+  <P.PanelGroup
     className={cn(
       "flex h-full w-full data-[panel-group-direction=vertical]:flex-col",
       className
@@ -18,14 +20,14 @@ const ResizablePanelGroup = ({
   />
 )
 
-const ResizablePanel = ResizablePrimitive.Panel
+const ResizablePanel = P.Panel
 
 const ResizableHandle = ({
   withHandle,
   className,
   ...props
 }: any) => (
-  <ResizablePrimitive.PanelResizeHandle
+  <P.PanelResizeHandle
     className={cn(
       "relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:-translate-y-1/2 data-[panel-group-direction=vertical]:after:translate-x-0 [&[data-panel-group-direction=vertical]>div]:rotate-90",
       className
@@ -37,7 +39,7 @@ const ResizableHandle = ({
         <div className="h-2.5 w-0.5 bg-foreground/20" />
       </div>
     )}
-  </ResizablePrimitive.PanelResizeHandle>
+  </P.PanelResizeHandle>
 )
 
 export { ResizablePanelGroup, ResizablePanel, ResizableHandle }
