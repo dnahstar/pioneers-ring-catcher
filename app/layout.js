@@ -1,15 +1,16 @@
 import "./globals.css";
-import Script from "next/script";
+
+export const metadata = {
+  title: "Pi-Ring 2.0",
+  description: "Grit leads to the Mainnet",
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="ko">
       <head>
-        {/* 파이 SDK를 가장 먼저 로드합니다 */}
-        <Script 
-          src="https://sdk.minepi.com/pi-sdk.js" 
-          strategy="beforeInteractive"
-        />
+        {/* Pi SDK를 미리 로드하여 인증 누락 방지 */}
+        <script src="https://sdk.minepi.com/pi-sdk.js"></script>
       </head>
       <body>{children}</body>
     </html>
