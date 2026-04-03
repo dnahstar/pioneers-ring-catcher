@@ -1,19 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 1. GitHub Pages 배포를 위한 정적 HTML 내보내기 설정
-  output: 'export',
-
-  // 2. 이미지 최적화 비활성화 (정적 배포 시 필수)
+  output: 'export', // 정적 사이트 배포용 (GitHub Pages)
   images: {
-    unoptimized: true,
+    unoptimized: true, // 이미지 최적화 끄기 (빌드 에러 방지)
   },
-
-  // 3. 슬래시(/) 처리 방식 설정 (경로 인식 오류 방지)
-  trailingSlash: true,
-
-  // 4. (중요) 레포지토리 이름이 dnahstar.github.io가 아닌 
-  // 프로젝트 단위(예: dnahstar.github.io/ring-game)라면 아래 주석을 해제하고 이름을 적으세요.
-  // basePath: '/ring-game', 
+  // 필요한 경우 basePath: '/프로젝트이름' 추가
 };
 
 export default nextConfig;
