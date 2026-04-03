@@ -44,35 +44,40 @@ export default function RingCatcherGame() {
     if (s) { s.currentTime = 0; s.play().catch(() => {}); }
   };
 
-   const handleAuth = async () => {
-    // SDK 로드 확인을 위한 반복 체크 (최대 10회 시도)
-    let retryCount = 0;
-    const checkSDK = setInterval(async () => {
+     const handleAuth = async () => {
+    // 초기 상태를 '확인 중'으로 설정하여 바로 에러가 뜨지 않게 함
+    setAuthStatus("인증 확인 중...");
+
+    const checkAndAuth = async (retries = 0) => {
+      // 1. window.Pi 객체가 있는지 먼저 확인
       if (typeof window !== "undefined" && window.Pi) {
-        clearInterval(checkSDK);
         try {
           await window.Pi.init({ version: "1.5", sandbox: true });
           const auth = await window.Pi.authenticate(['username'], (error) => {
-            console.error(error);
+            console.error("Pi Auth Callback Error:", error);
             setAuthStatus("인증 오류 (재시도 필요)");
           });
           setUsername(auth.user.username);
           setAuthStatus("인증 성공");
         } catch (e) {
+          console.error("Pi Init Error:", e);
           setAuthStatus("인증 오류 (재시도 필요)");
         }
+      } else if (retries < 20) { 
+        // 2. SDK가 없으면 0.5초마다 다시 확인 (최대 10초 대기)
+        setTimeout(() => checkAndAuth(retries + 1), 500);
       } else {
-        retryCount++;
-        if (retryCount > 10) {
-          clearInterval(checkSDK);
-          setAuthStatus("SDK 로드 실패 (새로고침)");
-        }
+        setAuthStatus("인증 오류 (재시도 필요)");
       }
-    }, 500);
+    };
+
+    checkAndAuth();
   };
 
   useEffect(() => {
-    handleAuth();
+    // 페이지 로드 후 1초 뒤에 인증 시작 (브라우저 초기화 시간 확보)
+    const timer = setTimeout(() => handleAuth(), 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   const startGame = () => {
