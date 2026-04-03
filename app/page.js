@@ -161,8 +161,7 @@ export default function Game() {
         </div>
         <div className="bg-red-600 px-3 py-1 rounded-full text-[10px] font-bold animate-pulse">SUPER v3.0</div>
       </header>
-
-      <main ref={gameAreaRef} className="w-full max-w-md aspect-[3/4] bg-[#1a2333] rounded-3xl border-4 border-[#3a4a6e] relative overflow-hidden shadow-2xl">
+ <main ref={gameAreaRef} className="w-full max-w-md aspect-[3/4] bg-[#1a2333] rounded-3xl border-4 border-[#3a4a6e] relative overflow-hidden shadow-2xl">
         {isFever && <div className="absolute inset-0 bg-yellow-400/10 animate-pulse" />}
         
         <div className="absolute top-4 left-4 right-4 flex justify-between z-20">
@@ -175,7 +174,27 @@ export default function Game() {
               {[...Array(5)].map((_, i) => (
                 <span key={i} className={`text-xl ${i < lives ? 'grayscale-0' : 'grayscale opacity-30'}`}>❤️</span>
               ))}
-            <div className="relative w-full h-full">
+            </div>
+            {isFever && <span className="text-yellow-400 text-xs font-bold animate-bounce">🔥 FEVER MODE!</span>}
+          </div>
+        </div>
+
+        {gameState === 'lobby' && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+            <p className="text-sm text-sky-300 mb-2">Welcome, {user?.username || 'Pioneer'}!</p>
+            <button onClick={() => { setScore(0); setLives(5); setGameState('playing'); }} className="bg-yellow-400 hover:bg-yellow-500 text-black px-12 py-4 rounded-2xl font-black text-2xl shadow-[0_8px_0_#b8860b] active:translate-y-1 active:shadow-none transition-all">START GAME</button>
+          </div>
+        )}
+
+        {gameState === 'gameover' && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
+            <h2 className="text-5xl font-black text-red-500 mb-2 italic">GAME OVER</h2>
+            <p className="text-2xl mb-8 font-bold">SCORE: <span className="text-yellow-400">{score}</span></p>
+            <button onClick={() => setGameState('lobby')} className="bg-sky-500 hover:bg-sky-600 px-10 py-3 rounded-xl font-bold text-xl">RETRY</button>
+          </div>
+        )}
+
+        <div className="relative w-full h-full">
           {rings.map(r => <Ring key={r.id} ring={r} onCatch={handleCatch} />)}
         </div>
       </main>
