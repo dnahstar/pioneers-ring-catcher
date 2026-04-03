@@ -52,7 +52,7 @@ export default function RingCatcherGame() {
       // 1. window.Pi 객체가 있는지 먼저 확인
       if (typeof window !== "undefined" && window.Pi) {
         try {
-          await window.Pi.init({ version: "1.5", sandbox: true });
+          await window.Pi.init({ version: "1.5", sandbox: false });
           const auth = await window.Pi.authenticate(['username'], (error) => {
             console.error("Pi Auth Callback Error:", error);
             setAuthStatus("인증 오류 (재시도 필요)");
