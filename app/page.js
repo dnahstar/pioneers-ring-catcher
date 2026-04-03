@@ -1,223 +1,260 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useState, useCallback } from "react";
+
+// --- 게임 설정 상수 (1.0 기준) ---
+const CANVAS_WIDTH = 400;
+const CANVAS_HEIGHT = 600;
+const POLE_WIDTH = 8;
+const POLE_HEIGHT = 350;
+const RING_OUTER_RADIUS = 40;
+const RING_INNER_RADIUS = 20;
+const RING_THICKNESS = 20;
+const INITIAL_DROP_SPEED = 2.5; // 1.0의 속도감 복구
+const INITIAL_LIVES = 5;
+const CATCH_TOLERANCE = 15;
 
 const RING_TYPES = [
-  { color: "#3b82f6", score: 10, name: "파랑" },
-  { color: "#22c55e", score: 20, name: "초록" },
-  { color: "#f97316", score: 30, name: "주황" },
-  { color: "#ef4444", score: 40, name: "빨강" },
+  { color: "#3b82f6", points: 10, weight: 5 },
+  { color: "#10b981", points: 20, weight: 3 },
+  { color: "#f59e0b", points: 30, weight: 2 },
+  { color: "#ef4444", points: 40, weight: 1 },
+  { color: "#fbbf24", points: 100, weight: 0.3 },
 ];
 
-export default function Home() {
-  const [piUsername, setPiUsername] = useState("GUEST MODE");
+export default function RingCatcherGame() {
+  // --- Refs ---
+  const canvasRef = useRef(null);
+  const animationFrameRef = useRef();
+  const dropIntervalRef = useRef();
+  const audioRefs = useRef({
+    bgm: null,
+    catch: null,
+    bomb: null,
+    fever: null,
+    gameover: null
+  });
+
+  // --- States ---
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [lives, setLives] = useState(5);
-  const [caughtRings, setCaughtRings] = useState(0);
-  const [gameState, setGameState] = useState("ready");
+  const [lives, setLives] = useState(INITIAL_LIVES);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [poleX, setPoleX] = useState(CANVAS_WIDTH / 2);
   const [rings, setRings] = useState([]);
-  const [basketX, setBasketX] = useState(50);
-  
-  // 실시간 유저 수 상태 (실제 기능 적용)
-  const [activeUsers, setActiveUsers] = useState(4);
+  const [dropSpeed, setDropSpeed] = useState(INITIAL_DROP_SPEED);
+  const [username, setUsername] = useState("Pioneer");
+  const [realtimeUsers, setRealtimeUsers] = useState(4); // 데모용 유저수
 
-  const gameAreaRef = useRef(null);
-  const audioRef = useRef(null);
-  const gameLoopRef = useRef(null);
-  const ringSpawnRef = useRef(null);
-
-  // 실시간 유저 수 시뮬레이션 (접속 중인 유저 느낌 부여)
+  // --- 사운드 초기화 (사용자 지정 경로 연결) ---
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveUsers(prev => {
-        const change = Math.floor(Math.random() * 3) - 1; // -1, 0, 1 중 하나
-        return Math.max(4, prev + change);
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const loadSound = (name) => {
+      const audio = new Audio(`/sound/${name}.mp3`);
+      if (name === 'bgm') audio.loop = true;
+      return audio;
+    };
+    
+    audioRefs.current = {
+      bgm: loadSound('bgm'),
+      catch: loadSound('catch'),
+      bomb: loadSound('bomb'),
+      fever: loadSound('fever'),
+      gameover: loadSound('gameover')
+    };
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Pi) {
-      window.Pi.init({ version: "1.5", sandbox: true });
-      window.Pi.authenticate(["username"], (onIncompletePaymentFound) => {})
-        .then((auth) => {
-          setPiUsername(`@${auth.user.username}`);
-          const savedHighScore = localStorage.getItem(`highScore_${auth.user.username}`);
-          if (savedHighScore) setHighScore(parseInt(savedHighScore));
-        })
-        .catch(() => setPiUsername("AUTH ERROR"));
+    // 파이 SDK 연동 (AUTH ERROR 방지)
+    if (window.Pi) {
+      window.Pi.authenticate(['username'], (onIncompletePaymentFound) => {})
+        .then((auth) => setUsername(auth.user.username))
+        .catch(() => setUsername("Pioneer"));
     }
   }, []);
 
-  const handleMove = useCallback((clientX) => {
-    if (gameState !== "playing" || !gameAreaRef.current) return;
-    const rect = gameAreaRef.current.getBoundingClientRect();
-    let x = ((clientX - rect.left) / rect.width) * 100;
-    x = Math.max(5, Math.min(95, x));
-    setBasketX(x);
-  }, [gameState]);
+  const playSound = (name) => {
+    const sound = audioRefs.current[name];
+    if (sound) {
+      sound.currentTime = 0;
+      sound.play().catch(() => {});
+    }
+  };
+
+  // --- 게임 로직 (1.0 기반) ---
+  const dropRing = useCallback(() => {
+    const totalWeight = RING_TYPES.reduce((sum, t) => sum + t.weight, 0);
+    let random = Math.random() * totalWeight;
+    let ringType = RING_TYPES[0];
+    for (const t of RING_TYPES) {
+      random -= t.weight;
+      if (random <= 0) { ringType = t; break; }
+    }
+
+    const x = Math.random() * (CANVAS_WIDTH - RING_OUTER_RADIUS * 2) + RING_OUTER_RADIUS;
+    const newRing = {
+      id: Math.random().toString(),
+      x, y: -RING_OUTER_RADIUS,
+      speed: dropSpeed + Math.random() * 0.5,
+      ...ringType,
+      caught: false,
+      caughtY: 0
+    };
+    setRings(prev => [...prev, newRing]);
+  }, [dropSpeed]);
+
+  const gameLoop = useCallback(() => {
+    if (!canvasRef.current || !isPlaying) return;
+    const ctx = canvasRef.current.getContext("2d");
+
+    setRings(prevRings => {
+      const updated = prevRings.map(ring => {
+        if (ring.caught) return ring;
+        const newY = ring.y + ring.speed;
+        const poleTopY = CANVAS_HEIGHT - POLE_HEIGHT;
+
+        // 고리 끼우기 판정
+        if (newY >= poleTopY - 20 && newY <= poleTopY + CATCH_TOLERANCE) {
+          if (Math.abs(ring.x - poleX) <= CATCH_TOLERANCE) {
+            playSound('catch');
+            setScore(s => s + ring.points);
+            const caughtCount = prevRings.filter(r => r.caught).length;
+            return { ...ring, y: newY, caught: true, caughtY: poleTopY + (caughtCount * RING_THICKNESS) };
+          }
+        }
+
+        // 바닥에 닿음 (실패)
+        if (newY > CANVAS_HEIGHT + RING_OUTER_RADIUS) {
+          playSound('bomb');
+          setLives(l => {
+            if (l <= 1) {
+              setIsGameOver(true);
+              setIsPlaying(false);
+              playSound('gameover');
+              audioRefs.current.bgm.pause();
+            }
+            return l - 1;
+          });
+          return null;
+        }
+        return { ...ring, y: newY };
+      }).filter(Boolean);
+      return updated;
+    });
+
+    // 화면 그리기
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // 배경 (1.0 감성)
+    const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    grad.addColorStop(0, "#87ceeb"); grad.addColorStop(1, "#e0f2ff");
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // 막대
+    const poleTopY = CANVAS_HEIGHT - POLE_HEIGHT;
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillRect(poleX - POLE_WIDTH / 2, poleTopY, POLE_WIDTH, POLE_HEIGHT);
+
+    // 링 그리기
+    rings.forEach(ring => {
+      const drawY = ring.caught ? ring.caughtY : ring.y;
+      const drawX = ring.caught ? poleX : ring.x;
+      
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, RING_OUTER_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = ring.color;
+      ctx.fill();
+      
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, RING_INNER_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "white";
+      ctx.fill();
+
+      ctx.fillStyle = "black";
+      ctx.font = "bold 20px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("π", drawX, drawY + 7);
+    });
+
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+  }, [isPlaying, poleX, rings]);
 
   useEffect(() => {
-    const handleMouseMove = (e) => handleMove(e.clientX);
-    const handleTouchMove = (e) => { if (e.touches[0]) handleMove(e.touches[0].clientX); };
-    if (gameState === "playing") {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    if (isPlaying) {
+      gameLoop();
+      dropIntervalRef.current = setInterval(dropRing, 1500);
+      audioRefs.current.bgm.play().catch(() => {});
     }
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("touchmove", handleTouchMove);
+      cancelAnimationFrame(animationFrameRef.current);
+      clearInterval(dropIntervalRef.current);
     };
-  }, [gameState, handleMove]);
-
-  const startGame = () => {
-    setScore(0); setLives(5); setCaughtRings(0); setRings([]); setBasketX(50);
-    setGameState("playing");
-    if (audioRef.current) audioRef.current.play().catch(() => {});
-  };
-
-  const resetGame = () => {
-    if (score > highScore) {
-      setHighScore(score);
-      if (piUsername !== "GUEST MODE") localStorage.setItem(`highScore_${piUsername.substring(1)}`, score);
-    }
-    setGameState("ready");
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-  };
-
-  useEffect(() => {
-    if (gameState !== "playing") return;
-    gameLoopRef.current = setInterval(() => {
-      setRings((prevRings) => {
-        const nextRings = prevRings.map((ring) => ({ ...ring, y: ring.y + 1.2 }));
-        const remainingRings = nextRings.filter((ring) => ring.y < 100);
-        if (nextRings.length > remainingRings.length) {
-          setLives((l) => {
-            const newLives = l - 1;
-            if (newLives <= 0) setGameState("over");
-            return newLives;
-          });
-        }
-        const caught = remainingRings.filter((ring) => 
-          ring.y > 85 && ring.y < 92 && Math.abs(ring.x - basketX) < 10
-        );
-        if (caught.length > 0) {
-          caught.forEach((ring) => {
-            setScore((s) => s + ring.type.score);
-            setCaughtRings((c) => c + 1);
-          });
-          return remainingRings.filter((ring) => !caught.includes(ring));
-        }
-        return remainingRings;
-      });
-    }, 20);
-
-    ringSpawnRef.current = setInterval(() => {
-      const type = RING_TYPES[Math.floor(Math.random() * RING_TYPES.length)];
-      setRings((prev) => [...prev, { id: Date.now(), x: Math.random() * 80 + 10, y: 0, type }]);
-    }, 1400);
-
-    return () => { clearInterval(gameLoopRef.current); clearInterval(ringSpawnRef.current); };
-  }, [gameState, basketX]);
-
-  useEffect(() => {
-    if (score > 0) {
-      if (score % 500 === 0) setLives((l) => Math.min(5, l + 1));
-      if (score === 1000) setLives(5);
-      if (score === 1500) setRings([]);
-      if (score >= 2000) setGameState("win");
-    }
-  }, [score]);
+  }, [isPlaying, gameLoop, dropRing]);
 
   return (
-    <main style={{ backgroundColor: "#0a0e17", color: "white", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "20px" }}>
-      <audio ref={audioRef} src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop />
-
-      {/* 헤더 */}
-      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: "420px", marginBottom: "15px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Image src="/logo.png" alt="Pi" width={28} height={28} />
-          <span style={{ fontWeight: "bold" }}>Ring Catcher</span>
-        </div>
-        <span style={{ fontSize: "14px", color: "#94a3b8" }}>{piUsername}</span>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 p-4 font-sans text-white">
+      {/* 상단 유저 정보 (에러 수정판) */}
+      <div className="flex items-center gap-3 mb-4 bg-white/10 px-6 py-2 rounded-full border border-white/20">
+        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+        <span className="font-bold">{username}님 포함 {realtimeUsers}명이 도전 중!</span>
       </div>
 
-      {/* 타이틀 및 버전 */}
-      <div style={{ textAlign: "center", marginBottom: "15px" }}>
-        <h2 style={{ fontSize: "36px", fontWeight: "900", marginBottom: "5px" }}>PIONEERS!!</h2>
-        <p style={{ fontSize: "18px", color: "#cbd5e1" }}>링 캐치 게임</p>
-        <div style={{ backgroundColor: "#f97316", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold", marginTop: "8px" }}>
-          Version 6.1 - Real-time Edition
-        </div>
-      </div>
-
-      {/* 실시간 집계 표시 (기능 적용) */}
-      <div style={{ backgroundColor: "white", color: "#1e293b", padding: "10px 25px", borderRadius: "25px", fontWeight: "bold", marginBottom: "20px", boxShadow: "0 4px 6px rgba(0,0,0,0.3)" }}>
-        ❤️ {activeUsers} 명이 즐기는 중
-      </div>
-
-      {/* 게임 패널 (노란색 테두리) */}
-      <div style={{ backgroundColor: "#facc15", padding: "12px", borderRadius: "20px", width: "100%", maxWidth: "420px" }}>
-        
-        {/* HUD */}
-        <div style={{ backgroundColor: "#fef08a", color: "#1e293b", padding: "15px", borderRadius: "12px", display: "flex", justifyContent: "space-between", marginBottom: "12px", fontWeight: "800" }}>
-          <div><div style={{ fontSize: "11px" }}>점수</div><div style={{ fontSize: "24px" }}>{score}</div></div>
-          <div style={{ fontSize: "28px" }}>❤️ {lives}</div>
-          <div style={{ textAlign: "right" }}><div style={{ fontSize: "11px" }}>최고 점수</div><div style={{ fontSize: "24px" }}>{highScore}</div></div>
-        </div>
-
-        {/* 메인 게임 화면 */}
-        <div ref={gameAreaRef} style={{ backgroundColor: "#bae6fd", height: "380px", borderRadius: "12px", position: "relative", overflow: "hidden", touchAction: "none" }}>
-          {gameState === "ready" && (
-            <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 20 }}>
-              <h3 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "10px" }}>고리를 잡아보세요!</h3>
-              <p style={{ fontSize: "14px", color: "#94a3b8", marginBottom: "20px" }}>마우스나 터치로 막대를 움직이세요</p>
-              <button onClick={startGame} style={{ backgroundColor: "#4f46e5", padding: "12px 40px", borderRadius: "12px", fontWeight: "bold", border: "none", color: "white", fontSize: "18px" }}>▷ 게임 시작</button>
+      <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-[440px] text-slate-900 border-8 border-yellow-400">
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <p className="text-xs font-bold text-slate-500">SCORE</p>
+            <p className="text-4xl font-black text-blue-600">{score}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-bold text-slate-500">LIVES</p>
+            <div className="flex gap-1 justify-end">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className={`text-2xl ${i < lives ? 'grayscale-0' : 'grayscale'}`}>❤️</span>
+              ))}
             </div>
-          )}
-
-          {rings.map(ring => (
-            <div key={ring.id} style={{ position: "absolute", left: `${ring.x}%`, top: `${ring.y}%`, width: "32px", height: "32px", borderRadius: "50%", backgroundColor: ring.type.color, border: "2px solid #000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "black", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>π</div>
-          ))}
-
-          {/* 조작 막대 */}
-          <div style={{ position: "absolute", bottom: "15px", left: `${basketX}%`, transform: "translateX(-50%)", width: "70px", height: "12px", backgroundColor: "#334155", borderRadius: "6px", border: "2px solid #000" }}>
-            <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", width: "5px", height: "65px", backgroundColor: "#64748b", borderRadius: "3px" }} />
           </div>
         </div>
 
-        {/* 하단 제어 */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", padding: "0 5px" }}>
-          <button onClick={resetGame} style={{ backgroundColor: "#818cf8", color: "white", padding: "8px 25px", borderRadius: "10px", fontWeight: "bold", border: "none" }}>
-            {gameState === "playing" ? "정지" : "나가기"}
-          </button>
-          <div style={{ color: "#854d0e", fontWeight: "bold", fontSize: "15px" }}>② 도움말</div>
-        </div>
-      </div>
+        <div className="relative rounded-xl overflow-hidden cursor-none touch-none bg-sky-100 border-4 border-slate-200">
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            onPointerMove={(e) => {
+              const rect = canvasRef.current.getBoundingClientRect();
+              setPoleX(Math.max(20, Math.min(CANVAS_WIDTH - 20, e.clientX - rect.left)));
+            }}
+            className="w-full h-auto"
+          />
 
-      {/* 1.0 버전 스타일의 상세 규칙 설명 */}
-      <div style={{ backgroundColor: "white", color: "#1e293b", padding: "20px", borderRadius: "15px", width: "100%", maxWidth: "420px", marginTop: "20px", border: "3px solid #facc15" }}>
-        <h4 style={{ fontWeight: "900", fontSize: "16px", marginBottom: "12px", borderBottom: "2px solid #f1f5f9", paddingBottom: "5px" }}>💎 게임 가이드 (친절한 규칙)</h4>
-        <div style={{ fontSize: "13px", lineHeight: "1.8" }}>
-          <p>🔹 <b>보너스:</b> 500점마다 또는 25개 잡을 때마다 <b>실수 2개 차감!</b></p>
-          <p>🎉 <b>대박 보너스:</b> 1000점 또는 50개 달성 시 <b>실수 완전 초기화!</b></p>
-          <p>🌟 <b>슈퍼 보너스:</b> 1500점 또는 75개 달성 시 <b>화면 고리 모두 제거!</b></p>
-          <p style={{ color: "#c2410c", fontWeight: "800", marginTop: "8px" }}>🏆 승리 조건: 2000점 또는 100개 달성!</p>
-        </div>
-
-        <h4 style={{ fontWeight: "900", fontSize: "14px", marginTop: "15px", marginBottom: "10px" }}>🎨 고리 점수 안내</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-          {RING_TYPES.map(t => (
-            <div key={t.color} style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "#f8fafc", padding: "5px 10px", borderRadius: "8px" }}>
-              <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: t.color, border: "1px solid black" }} />
-              <span style={{ fontSize: "12px", fontWeight: "bold" }}>{t.name}: {t.score}점</span>
+          {!isPlaying && !isGameOver && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm">
+              <button 
+                onClick={() => setIsPlaying(true)}
+                className="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-black px-12 py-6 rounded-full text-2xl shadow-xl transform hover:scale-110 transition"
+              >
+                START GAME
+              </button>
             </div>
-          ))}
+          )}
+
+          {isGameOver && (
+            <div className="absolute inset-0 bg-red-600/90 flex flex-col items-center justify-center p-6 text-center">
+              <h2 className="text-5xl font-black text-white mb-2">GAME OVER</h2>
+              <p className="text-white/80 mb-6 font-bold">최종 점수: {score}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="bg-white text-red-600 font-black px-10 py-4 rounded-full text-xl shadow-xl"
+              >
+                RETRY
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[10px] font-bold text-slate-400">
+          <p>마우스/터치로 막대 조절</p>
+          <p>π링을 막대에 끼우세요!</p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
