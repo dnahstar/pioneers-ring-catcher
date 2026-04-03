@@ -16,16 +16,18 @@ const RING_TYPES = [
   { color: "#3b82f6", points: 10, label: "파랑", weight: 6 },
   { color: "#10b981", points: 30, label: "초록", weight: 3 },
   { color: "#fbbf24", points: 100, label: "노랑", weight: 0.5 },
-  { color: "#ef4444", points: -100, label: "빨강", weight: 1.2 }, 
+  { color: "#ef4444", points: -100, label: "빨강(폭탄)", weight: 1.2 }, 
 ];
 
 export default function RingCatcherGame() {
   const canvasRef = useRef(null);
+  // 핵심: rodX를 useRef로 관리하여 리렌더링 시에도 위치 고정
+  const rodXRef = useRef(CANVAS_WIDTH / 2); 
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
   const [gameState, setGameState] = useState("START");
   const [username, setUsername] = useState("Pioneer");
-  const [authStatus, setAuthStatus] = useState("WAITING"); // WAITING, SUCCESS, ERROR
+  const [authStatus, setAuthStatus] = useState("인증 대기 중...");
   const [lastBonusMilestone, setLastBonusMilestone] = useState(0);
   const [showFever, setShowFever] = useState(false);
 
@@ -42,17 +44,15 @@ export default function RingCatcherGame() {
     if (s) { s.currentTime = 0; s.play().catch(() => {}); }
   };
 
-  // --- Pi SDK 인증 강화 로직 ---
   const handleAuth = async () => {
     if (typeof window !== "undefined" && window.Pi) {
-      setAuthStatus("WAITING");
       try {
         await window.Pi.init({ version: "1.5", sandbox: true });
         const auth = await window.Pi.authenticate(['username'], () => {});
         setUsername(auth.user.username);
-        setAuthStatus("SUCCESS");
+        setAuthStatus("인증 성공");
       } catch (e) {
-        setAuthStatus("ERROR");
+        setAuthStatus("인증 오류 (재시도 필요)");
       }
     }
   };
@@ -73,7 +73,6 @@ export default function RingCatcherGame() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     let animationFrameId;
-    let rodX = CANVAS_WIDTH / 2; // 사용자의 마우스/터치 위치를 저장하는 유일한 변수
     let rings = [];
     let caughtRings = [];
     let frameCount = 0;
@@ -87,9 +86,9 @@ export default function RingCatcherGame() {
       ctx.fillStyle = "#fbbf24";
       ctx.fillRect(0, 0, (score / GOAL_SCORE) * CANVAS_WIDTH, 6);
 
-      // 막대 렌더링 (중앙 복구 로직 절대 없음)
+      // 막대 렌더링 (rodXRef를 사용하여 중앙 복귀 원천 차단)
       ctx.fillStyle = "#475569";
-      ctx.fillRect(rodX - POLE_WIDTH / 2, CANVAS_HEIGHT - POLE_HEIGHT, POLE_WIDTH, POLE_HEIGHT);
+      ctx.fillRect(rodXRef.current - POLE_WIDTH / 2, CANVAS_HEIGHT - POLE_HEIGHT, POLE_WIDTH, POLE_HEIGHT);
 
       const spawnRate = Math.max(18, 75 - Math.floor(score / 200) * 12);
       if (frameCount % spawnRate === 0) {
@@ -102,7 +101,7 @@ export default function RingCatcherGame() {
 
       rings = rings.filter(ring => {
         ring.y += ring.speed;
-        const dist = Math.abs(ring.x - rodX);
+        const dist = Math.abs(ring.x - rodXRef.current);
         const hitTop = CANVAS_HEIGHT - POLE_HEIGHT;
 
         if (dist < 20 && ring.y > hitTop && ring.y < hitTop + 25) {
@@ -126,7 +125,7 @@ export default function RingCatcherGame() {
             playEffect('catch');
             caughtRings.push({ ...ring, caughtY: CANVAS_HEIGHT - (caughtRings.length * 14) - 35 });
           }
-          return false; // 링만 제거하고 rodX는 그대로 유지
+          return false;
         }
 
         if (ring.y > CANVAS_HEIGHT) {
@@ -149,7 +148,7 @@ export default function RingCatcherGame() {
 
       caughtRings.slice(-30).forEach(r => {
         ctx.beginPath();
-        ctx.arc(rodX, r.caughtY, RING_OUTER_RADIUS * 0.7, 0, Math.PI * 2);
+        ctx.arc(rodXRef.current, r.caughtY, RING_OUTER_RADIUS * 0.7, 0, Math.PI * 2);
         ctx.strokeStyle = r.color;
         ctx.lineWidth = 10;
         ctx.stroke();
@@ -162,7 +161,7 @@ export default function RingCatcherGame() {
     const handleInput = (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-      rodX = Math.max(30, Math.min(CANVAS_WIDTH - 30, x)); // 오직 여기서만 rodX가 변경됨
+      rodXRef.current = Math.max(30, Math.min(CANVAS_WIDTH - 30, x)); // 위치 실시간 저장
     };
 
     canvas.addEventListener("mousemove", handleInput);
@@ -174,9 +173,10 @@ export default function RingCatcherGame() {
   return (
     <div className="min-h-screen bg-[#0f172a] flex flex-col items-center p-4">
       <div className="w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border-[10px] border-[#fbbf24] relative">
+        {/* 상단 헤더 */}
         <div className="p-5 flex justify-between items-center bg-gray-50 border-b-2">
           <div className="text-left">
-            <p className="text-[10px] font-black text-blue-500 uppercase">Goal: {GOAL_SCORE}</p>
+            <p className="text-[10px] font-black text-blue-500 uppercase tracking-tighter">Goal: {GOAL_SCORE}</p>
             <p className="text-4xl font-black text-slate-800 leading-none">{score}</p>
           </div>
           <div className="flex gap-1">
@@ -190,37 +190,36 @@ export default function RingCatcherGame() {
           <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="w-full h-auto touch-none" />
           
           {showFever && (
-            <div className="absolute top-1/4 left-0 w-full text-center pointer-events-none animate-bounce">
-              <span className="bg-yellow-400 text-black px-4 py-2 rounded-full font-black text-xl border-2 border-white shadow-xl">FEVER! LIFE UP</span>
+            <div className="absolute top-1/4 left-0 w-full text-center animate-bounce">
+              <span className="bg-yellow-400 text-black px-4 py-2 rounded-full font-black text-xl border-2 border-white">FEVER! LIFE RECOVERY</span>
             </div>
           )}
 
           {gameState !== "PLAYING" && (
             <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white overflow-y-auto">
               <h2 className="text-[#fbbf24] text-4xl font-black mb-2 italic">PI-RING 2.0</h2>
-              <p className="text-[9px] tracking-widest mb-6 opacity-60 uppercase">Grit leads to the Mainnet</p>
+              <p className="text-[9px] tracking-widest mb-6 opacity-60 uppercase underline underline-offset-4 decoration-[#fbbf24]">Grit leads to the Mainnet</p>
               
-              <div className="bg-white/10 rounded-2xl p-4 mb-6 w-full text-left border border-white/10 text-[10px]">
+              <div className="bg-white/10 rounded-2xl p-4 mb-6 w-full text-left border border-white/10 text-[11px]">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
                   <p>👋 Welcome, <span className="text-[#fbbf24] font-bold">{username}</span></p>
-                  {authStatus !== "SUCCESS" && (
-                    <button onClick={handleAuth} className="bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/50 animate-pulse">인증 재시도</button>
-                  )}
+                  <p className={`text-[9px] px-2 py-0.5 rounded ${authStatus === "인증 성공" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>{authStatus}</p>
                 </div>
 
-                {/* 색상별 점수 안내 추가 */}
+                {/* 링 점수 체계 안내 */}
                 <div className="grid grid-cols-4 gap-2 mb-4 text-center">
                   {RING_TYPES.map(t => (
-                    <div key={t.label} className="flex flex-col items-center">
-                      <div className="w-4 h-4 rounded-full mb-1" style={{ backgroundColor: t.color }}></div>
-                      <p className="font-bold">{t.points}점</p>
+                    <div key={t.label} className="flex flex-col items-center bg-black/20 p-1 rounded">
+                      <div className="w-3 h-3 rounded-full mb-1" style={{ backgroundColor: t.color }}></div>
+                      <p className="font-bold scale-90">{t.points}점</p>
                     </div>
                   ))}
                 </div>
 
-                <div className="space-y-2 opacity-80">
-                  <p>🎁 <span className="text-green-400 font-bold">500점 단위:</span> 하트가 5개로 즉시 충전됩니다!</p>
-                  <p>⚠️ <span className="text-red-400 font-bold">생명 차감:</span> 링을 바닥에 놓치면 하트가 깎입니다.</p>
+                <div className="space-y-2 opacity-90 leading-tight">
+                  <p className="flex gap-2"><span>🎁</span> <span><b className="text-green-400">500점 단위:</b> 하트가 5개로 즉시 완충!</span></p>
+                  <p className="flex gap-2"><span>⚠️</span> <span><b className="text-red-400">생명 차감:</b> 링을 놓치면 하트가 깎입니다.</span></p>
+                  <p className="flex gap-2"><span>✨</span> <span><b className="text-blue-300">팁:</b> 막대는 손끝을 그대로 따라갑니다.</span></p>
                 </div>
               </div>
 
