@@ -1,207 +1,173 @@
-'use client';
+"use client";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-import { useState, useEffect, useRef } from 'react';
-import Head from 'next/head';
-
-// --- 스타일 정의 ---
 const GameStyles = () => (
   <style jsx global>{`
-    @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
-    body { font-family: 'Jua', sans-serif; overflow: hidden; background: #0a0f1e; }
-    @keyframes popRing {
-      0% { transform: scale(1); opacity: 1; }
-      100% { transform: scale(1.5) rotate(15deg); opacity: 0; filter: blur(2px); }
-    }
-    .ring-caught { animation: popRing 0.3s ease-out forwards; }
-    @keyframes shakeBomb {
-      0%, 100% { transform: translate(0, 0); }
-      20%, 60% { transform: translate(-5px, 0); }
-      40%, 80% { transform: translate(5px, 0); }
-    }
-    .ring-bomb { animation: shakeBomb 0.5s infinite; background-color: #333 !important; border: 3px solid #ff4444 !important;}
-  `}</style>
+    @keyframes fall { 0% { transform: translateY(-20px); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(500px); } }
+    .ring-fall { animation: fall 3.8s linear forwards; }
+    .pole-gradient { background: linear-gradient(to bottom, #4b5563, #1f2937, #111827); }
+    .fever-glow { filter: drop-shadow(0 0 10px #fbbf24); }
+  `}`</style>
 );
 
-// --- 효과음 함수 ---
-const playSound = (type) => {
-  const audio = new Audio(`/sounds/${type}.mp3`);
-  audio.volume = 0.5;
-  audio.play().catch(() => {}); // 브라우저 차단 방지
-};
-
-// --- 고리 컴포넌트 ---
-const Ring = ({ ring, onCatch }) => {
-  const [isCaught, setIsCaught] = useState(false);
-  const handleCatch = () => {
-    if (isCaught) return;
-    setIsCaught(true);
-    playSound(ring.isBomb ? 'bomb' : 'catch');
-    setTimeout(() => onCatch(ring), 200);
-  };
-  return (
-    <div
-      onClick={handleCatch}
-      className={`absolute flex items-center justify-center rounded-full cursor-pointer transition-transform ${isCaught ? 'ring-caught' : ''} ${ring.isBomb ? 'ring-bomb' : ''}`}
-      style={{ left: ring.x, top: ring.y, width: ring.size, height: ring.size, backgroundColor: ring.color, border: '4px solid rgba(255,255,255,0.6)', boxShadow: `0 0 15px ${ring.color}`, zIndex: 10 }}
-    >
-      <span className="text-xl font-bold text-white select-none">π</span>
-    </div>
-  );
-};
-
-export default function Game() {
-  const [gameState, setGameState] = useState('loading'); // loading -> lobby -> playing -> gameover
-  const [user, setUser] = useState(null);
+export default function Home() {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(5);
+  const [gameState, setGameState] = useState('lobby');
   const [rings, setRings] = useState([]);
+  const [stackedRings, setStackedRings] = useState([]); 
   const [isFever, setIsFever] = useState(false);
   const [feverCount, setFeverCount] = useState(0);
-  const gameAreaRef = useRef(null);
-  const bgmRef = useRef(null);
+  const [lastBonusScore, setLastBonusScore] = useState(0);
+  const [user, setUser] = useState(null); // 파이오니어 정보 저장
+  const [sdkStatus, setSdkStatus] = useState("Initializing SDK...");
 
-  // --- 1. 파이 SDK 초기화 (메인넷 심사용 핵심) ---
+  // --- Pi SDK 통합 로직 ---
   useEffect(() => {
     const initPi = async () => {
-      if (window.Pi) {
+      if (typeof window !== 'undefined' && window.Pi) {
         try {
-          const scopes = ['username', 'payments'];
-          const auth = await window.Pi.authenticate(scopes, (onIncompletePaymentFound) => {
-            console.log('Incomplete payment found', onIncompletePaymentFound);
+          setSdkStatus("Authenticating...");
+          await window.Pi.init({ version: "2.0", sandbox: false });
+          const auth = await window.Pi.authenticate(["username"], (error) => {
+            console.error("Auth Error:", error);
+            setSdkStatus("Auth Failed");
           });
           setUser(auth.user);
-          setGameState('lobby');
+          setSdkStatus("Connected");
         } catch (err) {
-          console.error('Pi SDK Auth failed', err);
-          setGameState('lobby'); // SDK 실패해도 로컬 플레이 가능하게
+          console.error("SDK Init Error:", err);
+          setSdkStatus("External Browser");
         }
       } else {
-        setGameState('lobby'); // 일반 브라우저 대응
+        setSdkStatus("Pi Browser Required");
       }
     };
     initPi();
   }, []);
 
-  // --- 2. BGM 제어 ---
-  useEffect(() => {
-    if (gameState === 'playing') {
-      bgmRef.current = new Audio('/sounds/bgm.mp3');
-      bgmRef.current.loop = true;
-      bgmRef.current.volume = 0.3;
-      bgmRef.current.play().catch(() => {});
-    } else {
-      if (bgmRef.current) { bgmRef.current.pause(); bgmRef.current = null; }
-    }
-    return () => { if (bgmRef.current) bgmRef.current.pause(); };
-  }, [gameState]);
+  const playSound = useCallback((type) => {
+    const audio = new Audio(`/sounds/${type}.mp3`);
+    audio.play().catch(() => {});
+  }, []);
 
-  // --- 3. 게임 로직 ---
+  // 게임 루프 및 보너스 로직 (기존 2.0 규칙 복원)
   useEffect(() => {
     if (gameState !== 'playing') return;
-    const spawnInterval = setInterval(() => {
-      const area = gameAreaRef.current?.getBoundingClientRect();
-      if (!area) return;
-      const size = Math.random() * 20 + 50;
-      const newRing = {
-        id: Date.now(),
-        x: Math.random() * (area.width - size),
-        y: Math.random() * (area.height - size - 120),
-        size,
-        isBomb: Math.random() < 0.08,
-        color: ['#FF5555', '#55FF55', '#5555FF', '#FFFF55'][Math.floor(Math.random() * 4)]
-      };
+    const interval = setInterval(() => {
+      const isBomb = Math.random() < 0.12;
+      const newRing = { id: Date.now(), x: 30 + Math.random() * 40, isBomb };
       setRings(prev => [...prev, newRing]);
-      setTimeout(() => {
-        setRings(prev => {
-          const stillThere = prev.find(r => r.id === newRing.id);
-          if (stillThere && !newRing.isBomb && gameState === 'playing') {
-            setLives(l => {
-              if (l <= 1) { setGameState('gameover'); playSound('gameover'); return 0; }
-              return l - 1;
-            });
-          }
-          return prev.filter(r => r.id !== newRing.id);
-        });
-      }, isFever ? 1300 : 2200);
-    }, isFever ? 600 : 1100);
-    return () => clearInterval(spawnInterval);
+    }, isFever ? 400 : 900);
+    return () => clearInterval(interval);
   }, [gameState, isFever]);
+
+  useEffect(() => {
+    if (score >= 2000) {
+      setGameState('win');
+      playSound('win');
+    } else if (score >= lastBonusScore + 500 && score > 0) {
+      setLives(l => Math.min(l + 2, 5));
+      setLastBonusScore(prev => prev + 500);
+      playSound('bonus');
+    }
+  }, [score, lastBonusScore, playSound]);
 
   const handleCatch = (ring) => {
     if (ring.isBomb) {
       setLives(l => { if (l <= 1) { setGameState('gameover'); playSound('gameover'); return 0; } return l - 1; });
       setFeverCount(0);
+      playSound('bomb');
     } else {
       setScore(s => s + (isFever ? 50 : 20));
-      setFeverCount(prev => {
-        if (prev + 1 >= 10 && !isFever) {
+      setStackedRings(prev => [...prev.slice(-9), ring.id]);
+      setFeverCount(f => {
+        if (f + 1 >= 10 && !isFever) {
           setIsFever(true);
           playSound('fever');
           setTimeout(() => setIsFever(false), 5000);
           return 0;
         }
-        return prev + 1;
+        return f + 1;
       });
+      playSound('catch');
     }
     setRings(prev => prev.filter(r => r.id !== ring.id));
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e] text-white p-4 flex flex-col items-center">
-      <Head>
-        <title>Ring Catcher Pi v3.0 Super</title>
-        <script src="https://sdk.minepi.com/pi-sdk.js" defer></script>
-      </Head>
+    <div className="min-h-screen bg-[#0a0f1e] text-white p-4 flex flex-col items-center select-none font-sans">
       <GameStyles />
-
-      <header className="w-full max-w-md flex justify-between items-center mb-4">
+      
+      {/* 상단 정보: 아이디 노출 강화 */}
+      <header className="w-full max-w-md flex justify-between items-start mb-4">
         <div>
-          <h1 className="text-3xl font-black text-yellow-400 italic">RING CATCHER</h1>
-          {user && <p className="text-[10px] text-sky-400">Pioneer: {user.username}</p>}
+          <h1 className="text-3xl font-black text-yellow-400 italic tracking-tighter leading-none">RING CATCHER</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${user ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <p className="text-[10px] text-sky-400 font-bold uppercase tracking-widest">
+              {user ? `PIONEER: ${user.username}` : sdkStatus}
+            </p>
+          </div>
         </div>
-        <div className="bg-red-600 px-3 py-1 rounded-full text-[10px] font-bold animate-pulse">SUPER v3.0</div>
+        <div className="text-right">
+          <div className="flex gap-0.5 mb-1 justify-end">
+            {[...Array(5)].map((_, i) => (
+              <span key={i} className={`text-xl ${i < lives ? 'grayscale-0' : 'grayscale opacity-20'}`}>❤️</span>
+            ))}
+          </div>
+          <p className="text-2xl font-black text-white leading-none">{score}</p>
+        </div>
       </header>
- <main ref={gameAreaRef} className="w-full max-w-md aspect-[3/4] bg-[#1a2333] rounded-3xl border-4 border-[#3a4a6e] relative overflow-hidden shadow-2xl">
-        {isFever && <div className="absolute inset-0 bg-yellow-400/10 animate-pulse" />}
+
+      <main className="w-full max-w-md aspect-[3/4] bg-[#1a2333] rounded-[2.5rem] border-[6px] border-[#3a4a6e] relative overflow-hidden shadow-2xl">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-72 pole-gradient rounded-t-full border-t-4 border-white/10 opacity-40" />
         
-        <div className="absolute top-4 left-4 right-4 flex justify-between z-20">
-          <div className="bg-black/50 p-2 rounded-xl border border-white/10">
-            <p className="text-[10px] text-gray-400">SCORE</p>
-            <p className="text-xl font-bold">{score}</p>
-          </div>
-          <div className="flex flex-col items-end">
-            <div className="flex gap-1 mb-1">
-              {[...Array(5)].map((_, i) => (
-                <span key={i} className={`text-xl ${i < lives ? 'grayscale-0' : 'grayscale opacity-30'}`}>❤️</span>
-              ))}
-            </div>
-            {isFever && <span className="text-yellow-400 text-xs font-bold animate-bounce">🔥 FEVER MODE!</span>}
-          </div>
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col-reverse items-center">
+          {stackedRings.map((id) => (
+            <div key={id} className="w-20 h-5 border-2 border-sky-400 bg-sky-500/40 rounded-full mb-[-3px] fever-glow" />
+          ))}
         </div>
 
         {gameState === 'lobby' && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-            <p className="text-sm text-sky-300 mb-2">Welcome, {user?.username || 'Pioneer'}!</p>
-            <button onClick={() => { setScore(0); setLives(5); setGameState('playing'); }} className="bg-yellow-400 hover:bg-yellow-500 text-black px-12 py-4 rounded-2xl font-black text-2xl shadow-[0_8px_0_#b8860b] active:translate-y-1 active:shadow-none transition-all">START GAME</button>
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm p-8">
+            {user && <p className="text-yellow-400 font-bold mb-2 animate-bounce">Welcome, @{user.username}!</p>}
+            <h2 className="text-2xl font-black mb-6 border-b-2 border-yellow-400 pb-1">MISSION: MAINNET</h2>
+            <div className="bg-white/5 p-5 rounded-2xl mb-8 text-sm text-gray-300 space-y-3 w-full border border-white/10">
+              <p className="flex justify-between"><span>🎯 고리 끼우기</span><span className="text-sky-400">Target</span></p>
+              <p className="flex justify-between"><span>💎 500점 보너스</span><span className="text-red-400">HP +2</span></p>
+              <p className="flex justify-between font-bold text-white"><span>🏆 승리 조건</span><span>2000 Points</span></p>
+            </div>
+            <button onClick={() => { setScore(0); setLives(5); setStackedRings([]); setGameState('playing'); playSound('start'); }} 
+              className="w-full bg-yellow-400 text-black py-4 rounded-2xl font-black text-xl shadow-[0_6px_0_#b48a04] active:translate-y-1 active:shadow-none transition-all">START GAME</button>
           </div>
         )}
 
-        {gameState === 'gameover' && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
-            <h2 className="text-5xl font-black text-red-500 mb-2 italic">GAME OVER</h2>
-            <p className="text-2xl mb-8 font-bold">SCORE: <span className="text-yellow-400">{score}</span></p>
-            <button onClick={() => setGameState('lobby')} className="bg-sky-500 hover:bg-sky-600 px-10 py-3 rounded-xl font-bold text-xl">RETRY</button>
+        {/* 게임오버/승리 화면 생략 (위의 로직과 동일) */}
+        {(gameState === 'gameover' || gameState === 'win') && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg">
+            <h2 className={`text-4xl font-black mb-4 italic ${gameState === 'win' ? 'text-yellow-400' : 'text-red-500'}`}>
+              {gameState === 'win' ? 'MISSION SUCCESS' : 'MISSION FAILED'}
+            </h2>
+            <p className="text-2xl mb-8">SCORE: <span className="text-yellow-400">{score}</span></p>
+            <button onClick={() => setGameState('lobby')} className="bg-sky-500 px-12 py-4 rounded-2xl font-bold text-xl">RETRY</button>
           </div>
         )}
 
         <div className="relative w-full h-full">
-          {rings.map(r => <Ring key={r.id} ring={r} onCatch={handleCatch} />)}
+          {rings.map(r => (
+            <div key={r.id} onClick={() => handleCatch(r)}
+              className={`absolute ring-fall cursor-pointer flex items-center justify-center rounded-full border-4 shadow-xl active:scale-90 ${r.isBomb ? 'border-red-500 bg-red-900/60' : 'border-sky-400 bg-sky-900/40'}`}
+              style={{ left: `${r.x}%`, width: '60px', height: '60px' }}>
+              <span className="text-2xl font-black">{r.isBomb ? '💣' : 'π'}</span>
+            </div>
+          ))}
         </div>
       </main>
 
-      <footer className="mt-8 text-center text-gray-500 text-[10px]">
-        <p>© 2026 RAPAJOCKDH. Built for Pi Network.</p>
-        <p className="mt-1 italic">"Grit leads to the Mainnet."</p>
+      <footer className="mt-6 text-center">
+        <p className="text-gray-600 text-[10px] font-bold tracking-widest uppercase">© 2026 RAPAJOCKDH • Mainnet Pioneer</p>
+        <p className="text-sky-500/40 text-[9px] italic mt-1">"Grit leads to the Mainnet."</p>
       </footer>
     </div>
   );
