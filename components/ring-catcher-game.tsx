@@ -97,76 +97,38 @@ export function RingCatcherGame() {
     }
   }, [])
 
+    // --- BGM 준비 및 중지 로직 ---
+  const [bgmAudio] = useState(typeof Audio !== 'undefined' ? new Audio('/sounds/bgm.mp3') : null);
+
   const startBackgroundMusic = useCallback(() => {
-    if (!audioContextRef.current || bgMusicOscillatorRef.current) return
-
-    const ctx = audioContextRef.current
-    const gainNode = ctx.createGain()
-    gainNode.gain.setValueAtTime(0.08, ctx.currentTime)
-    gainNode.connect(ctx.destination)
-
-    bgMusicGainRef.current = gainNode
-
-    const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 880.0, 987.77, 1046.5]
-    let noteIndex = 0
-    let oscillator: OscillatorNode | null = null
-
-    const playNextNote = () => {
-      if (oscillator) {
-        oscillator.stop()
-      }
-
-      oscillator = ctx.createOscillator()
-      oscillator.type = "square"
-      oscillator.frequency.setValueAtTime(notes[noteIndex], ctx.currentTime)
-      oscillator.connect(gainNode)
-      oscillator.start()
-
-      noteIndex = (noteIndex + 1) % notes.length
-
-      setTimeout(playNextNote, 250)
+    if (bgmAudio) {
+      bgmAudio.loop = true;
+      bgmAudio.volume = 0.3; 
+      bgmAudio.currentTime = 0;
+      bgmAudio.play().catch(() => {
+        const playOnAction = () => { bgmAudio.play(); window.removeEventListener('click', playOnAction); };
+        window.addEventListener('click', playOnAction);
+      });
     }
-
-    playNextNote()
-    bgMusicOscillatorRef.current = oscillator
-  }, [])
+  }, [bgmAudio]);
 
   const stopBackgroundMusic = useCallback(() => {
-    if (bgMusicOscillatorRef.current && audioContextRef.current) {
-      try {
-        bgMusicOscillatorRef.current.stop()
-      } catch (e) {
-        // Already stopped
-      }
-      bgMusicOscillatorRef.current = null
+    if (bgmAudio) {
+      bgmAudio.pause();
     }
-    if (bgMusicGainRef.current) {
-      bgMusicGainRef.current.disconnect()
-      bgMusicGainRef.current = null
+  }, [bgmAudio]);
+
+   // --- 125번 줄: 효과음 재생 함수 (playSound) ---
+  const playSound = useCallback((type: 'catch' | 'bomb' | 'fever' | 'gameover' | 'winner') => {
+    if (typeof Audio !== 'undefined') {
+      const audio = new Audio(`/sounds/${type}.mp3`);
+      audio.volume = 0.5; // 효과음 볼륨 (0.0 ~ 1.0)
+      audio.play().catch((e) => console.log(`${type} 사운드 재생 실패:`, e));
     }
-  }, [])
+  }, []);
 
-  const playCatchSound = useCallback(() => {
-    if (!audioContextRef.current) return
-
-    const ctx = audioContextRef.current
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
-
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
-
-    oscillator.type = "sine"
-    oscillator.frequency.setValueAtTime(800, ctx.currentTime)
-    oscillator.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1)
-
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
-
-    oscillator.start(ctx.currentTime)
-    oscillator.stop(ctx.currentTime + 0.1)
-  }, [])
-
+  // 기존 코드들과의 호환성을 위해 남겨두는 별칭 함수
+  const playCatchSound = useCallback(() => playSound('catch'), [playSound]);
   const addScoreAnimation = useCallback((x: number, y: number, points: number) => {
     const animation: ScoreAnimation = {
       id: `score-${Date.now()}-${Math.random()}`,
@@ -271,13 +233,37 @@ export function RingCatcherGame() {
         if (newY >= poleTopY - RING_OUTER_RADIUS && newY <= poleTopY + CATCH_TOLERANCE) {
           const distance = Math.abs(ring.x - poleX)
           if (distance <= CATCH_TOLERANCE) {
-            const caughtRings = prevRings.filter((r) => r.caught)
-            const newCaughtY = poleTopY + caughtRings.length * RING_THICKNESS
-            setScore((s) => s + ring.points)
-            setCaughtCount((c) => c + 1)
-            playCatchSound()
-            addScoreAnimation(poleX, poleTopY - 50, ring.points)
-            return { ...ring, y: newY, caught: true, caughtY: newCaughtY }
+               // --- 236번 줄부터 시작 ---
+        const caughtRings = prevRings.filter((r) => r.caught);
+        const newCaughtY = poleTopY + caughtRings.length * RING_THICKNESS;
+        const newScore = s + ring.points;
+        const newCaughtCount = c + 1;
+
+        // [최종 승리 체크] 2000점 또는 100개
+        if (newScore >= 2000 || newCaughtCount >= 100) {
+          stopBackgroundMusic(); 
+          playSound('winner'); // pixabay에서 받으신 winner.mp3 재생
+          setIsPlaying(false);
+          setIsGameOver(true);
+        } 
+        // [Fever 보너스 체크] 500/1000/1500점 또는 25/50/75개
+        else if (
+          (newScore > 0 && [500, 1000, 1500].includes(newScore)) || 
+          (newCaughtCount > 0 && [25, 50, 75].includes(newCaughtCount))
+        ) {
+          playSound('fever');
+        } 
+        // [일반 성공]
+        else {
+          playSound('catch');
+        }
+
+        setScore(newScore);
+        setCaughtCount(newCaughtCount);
+        addScoreAnimation(poleX, poleTopY - 50, ring.points);
+        
+        return { ...ring, caught: true, caughtY: newCaughtY };
+        // --- 242번 줄(기존 return 부분)에서 끝 ---
           }
         }
 
