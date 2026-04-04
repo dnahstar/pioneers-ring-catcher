@@ -86,6 +86,8 @@ export function RingCatcherGame() {
   const [lastSuperScoreMilestone, setLastSuperScoreMilestone] = useState(0)
   const [lastSuperCaughtMilestone, setLastSuperCaughtMilestone] = useState(0)
   const [totalPlays, setTotalPlays] = useState(0)
+  // 89번 줄 근처에 추가
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -126,7 +128,22 @@ export function RingCatcherGame() {
       audio.play().catch((e) => console.log(`${type} 사운드 재생 실패:`, e));
     }
   }, []);
-
+ // --- 130번 줄 다음에 추가 시작 ---
+  const handleLogin = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.Pi) {
+      try {
+        const scopes = ['username'];
+        const auth = await window.Pi.authenticate(scopes, (payment: any) => {
+          console.log("Incomplete payment found:", payment);
+        });
+        setUsername(auth.user.username);
+      } catch (err) {
+        console.error(err);
+        alert("파이 브라우저에서 접속해주세요.");
+      }
+    }
+  }, []);
+  // --- 추가 끝 ---
   // 기존 코드들과의 호환성을 위해 남겨두는 별칭 함수
   const playCatchSound = useCallback(() => playSound('catch'), [playSound]);
   const addScoreAnimation = useCallback((x: number, y: number, points: number) => {
@@ -618,6 +635,24 @@ export function RingCatcherGame() {
   }, [stopBackgroundMusic])
 
   return (
+       {/* --- 파이 로그인 버튼 시작 --- */}
+      <div className="flex justify-center mb-4">
+        {!username ? (
+          <button 
+            onClick={handleLogin}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform active:scale-95"
+          >
+            💜 파이 네트워크로 로그인
+          </button>
+        ) : (
+          <div className="bg-white/90 backdrop-blur-sm px-6 py-2 rounded-full border border-purple-500/30 shadow-sm">
+            <span className="text-slate-600 text-sm font-medium">반가워요!</span>
+            <span className="mx-2 text-purple-600 font-bold">{username}님</span>
+            <span>🚀</span>
+          </div>
+        )}
+      </div>
+      {/* --- 파이 로그인 버튼 끝 --- */}
     <div className="flex flex-col items-center gap-6">
       <div className="flex items-center gap-2 px-4 py-2 bg-white/90 rounded-full shadow-lg">
         <Heart className="w-5 h-5 text-red-500 fill-red-500" />
