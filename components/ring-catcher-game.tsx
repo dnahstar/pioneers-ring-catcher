@@ -635,19 +635,20 @@ export function RingCatcherGame() {
   }, [stopBackgroundMusic])
 
   return (
-       {/* --- 파이 로그인 버튼 시작 --- */}
+     <div className="flex flex-col items-center gap-6">
+      {/* 파이 로그인 버튼 영역 */}
       <div className="flex justify-center mb-4">
         {!username ? (
           <button 
             onClick={handleLogin}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform active:scale-95"
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform"
           >
             💜 파이 네트워크로 로그인
           </button>
         ) : (
           <div className="bg-white/90 backdrop-blur-sm px-6 py-2 rounded-full border border-purple-500/30 shadow-sm">
-            <span className="text-slate-600 text-sm font-medium">반가워요!</span>
-            <span className="mx-2 text-purple-600 font-bold">{username}님</span>
+            <span className="text-slate-600 text-sm font-medium">반가워요! </span>
+            <span className="text-purple-600 font-bold">{username}님</span>
             <span>🚀</span>
           </div>
         )}
