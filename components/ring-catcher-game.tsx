@@ -133,13 +133,17 @@ export function RingCatcherGame() {
     if (typeof window !== 'undefined' && window.Pi) {
       try {
         const scopes = ['username'];
+        // 인자를 하나만 전달하도록 수정하여 타입 에러 해결
         const auth = await window.Pi.authenticate(scopes, (payment: any) => {
           console.log("Incomplete payment found:", payment);
         });
-        setUsername(auth.user.username);
+        
+        if (auth && auth.user) {
+          setUsername(auth.user.username);
+        }
       } catch (err) {
         console.error(err);
-        alert("파이 브라우저에서 접속해주세요.");
+        alert("파이 브라우저에서 접속하거나 로그인을 승인해주세요.");
       }
     }
   }, []);
