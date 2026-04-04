@@ -236,8 +236,8 @@ export function RingCatcherGame() {
                // --- 236번 줄부터 시작 ---
         const caughtRings = prevRings.filter((r) => r.caught);
         const newCaughtY = poleTopY + caughtRings.length * RING_THICKNESS;
-        const newScore = s + ring.points;
-        const newCaughtCount = c + 1;
+        const newScore = score + ring.points;
+        const newCaughtCount = caughtCount + 1;
 
         // [최종 승리 체크] 2000점 또는 100개
         if (newScore >= 2000 || newCaughtCount >= 100) {
