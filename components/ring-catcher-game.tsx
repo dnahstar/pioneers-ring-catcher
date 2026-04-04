@@ -635,30 +635,34 @@ export function RingCatcherGame() {
   }, [stopBackgroundMusic])
 
   return (
-     <div className="flex flex-col items-center gap-6">
-      {/* 파이 로그인 버튼 영역 */}
-      <div className="flex justify-center mb-4">
-        {!username ? (
-          <button 
-            onClick={handleLogin}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform"
-          >
-            💜 파이 네트워크로 로그인
-          </button>
-        ) : (
-          <div className="bg-white/90 backdrop-blur-sm px-6 py-2 rounded-full border border-purple-500/30 shadow-sm">
-            <span className="text-slate-600 text-sm font-medium">반가워요! </span>
-            <span className="text-purple-600 font-bold">{username}님</span>
-            <span>🚀</span>
-          </div>
-        )}
-      </div>
-      {/* --- 파이 로그인 버튼 끝 --- */}
     <div className="flex flex-col items-center gap-6">
-      <div className="flex items-center gap-2 px-4 py-2 bg-white/90 rounded-full shadow-lg">
-        <Heart className="w-5 h-5 text-red-500 fill-red-500" />
-        <span className="text-lg font-bold text-black">{totalPlays.toLocaleString()}</span>
-        <span className="text-sm text-black">명이 즐기는 중</span>
+      {/* 1. 상단 정보 영역 (접속자 수 & 로그인 버튼) */}
+      <div className="w-full max-w-md flex flex-col items-center gap-4">
+        
+        {/* 로그인 버튼 */}
+        <div className="flex justify-center">
+          {!username ? (
+            <button 
+              onClick={handleLogin}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-2xl hover:scale-105 transition-transform"
+            >
+              💜 파이 네트워크로 로그인
+            </button>
+          ) : (
+            <div className="bg-white/90 backdrop-blur-sm px-6 py-2 rounded-full border border-purple-500/30 shadow-sm">
+              <span className="text-slate-600 text-sm font-medium">반가워요! </span>
+              <span className="text-purple-600 font-bold">{username}님</span>
+              <span>🚀</span>
+            </div>
+          )}
+        </div>
+
+        {/* 접속자 수 표시 */}
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/90 rounded-full shadow-md">
+          <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+          <span className="text-base font-bold text-black">{totalPlays.toLocaleString()}</span>
+          <span className="text-xs text-black">명이 즐기는 중</span>
+        </div>
       </div>
 
       <Card className="p-6 w-full max-w-md">
