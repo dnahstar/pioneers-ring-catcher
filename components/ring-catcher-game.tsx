@@ -636,7 +636,18 @@ export function RingCatcherGame() {
       }
     }
   }, [stopBackgroundMusic])
-
+useEffect(() => {
+  // 브라우저 환경이고 파이 SDK가 로드되었다면 실행
+  if (typeof window !== 'undefined' && window.Pi) {
+    try {
+      // 시스템에 '나 지금 접속 중이야'라고 미리 알리는 과정 (아이디어 1번)
+      window.Pi.init({ version: "2.0", sandbox: false });
+      console.log("Pi SDK 초기화 성공!");
+    } catch (e) {
+      console.error("Pi SDK 초기화 실패:", e);
+    }
+  }
+}, []); // 앱이 처음 켜질 때 딱 한 번 실행
   return (
     <div className="flex flex-col items-center gap-6">
       {/* 1. 상단 정보 영역 (접속자 수 & 로그인 버튼) */}
