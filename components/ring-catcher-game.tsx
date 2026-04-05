@@ -88,6 +88,28 @@ export function RingCatcherGame() {
   const [totalPlays, setTotalPlays] = useState(0)
   // 89번 줄 근처에 추가
   const [username, setUsername] = useState<string | null>(null);
+  // --- 1. 사운드 파일 저장소 (useRef) ---
+  const soundRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+  // --- 2. 사운드 미리 로드 (useEffect) ---
+  useEffect(() => {
+    const soundNames = ['catch', 'fever', 'bomb', 'winner', 'gameover'];
+    soundNames.forEach(name => {
+      const audio = new Audio(`/sounds/${name}.mp3`);
+      audio.preload = 'auto'; 
+      soundRefs.current[name] = audio;
+    });
+  }, []);
+
+  // --- 3. 실제 재생 함수 (playSound) ---
+  const playSound = useCallback((name: string) => {
+    const audio = soundRefs.current[name];
+    if (audio) {
+      audio.pause(); // 재생 중이면 일단 멈춤
+      audio.currentTime = 0; // 재생 위치를 0으로 초기화 (씹힘 방지 핵심!)
+      audio.play().catch(e => console.log("사운드 재생 실패:", e));
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
