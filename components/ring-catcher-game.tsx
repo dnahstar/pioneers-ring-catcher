@@ -148,8 +148,26 @@ export function RingCatcherGame() {
       bgmAudio.volume = 0.3; 
       bgmAudio.currentTime = 0;
       bgmAudio.play().catch(() => {
-        const playOnAction = () => { bgmAudio.play(); window.removeEventListener('click', playOnAction); };
-        window.addEventListener('click', playOnAction);
+       // 151번 줄 근처 수정
+const playOnAction = () => {
+  bgmAudio.play(); // 1. 배경음악 시작
+
+  // 2. 효과음 엔진 강제 잠금 해제 (이게 추가되어야 합니다!)
+  const soundNames = ['catch', 'fever', 'bomb', 'winner', 'gameover'];
+  soundNames.forEach(name => {
+    const audio = soundRefs.current[name];
+    if (audio) {
+      // 아주 짧게 재생했다가 멈춰서 브라우저에게 "이 소리 쓸 거야"라고 알려줌
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }).catch(() => {});
+    }
+  });
+
+  window.removeEventListener('click', playOnAction);
+};
+window.addEventListener('click', playOnAction);
       });
     }
   }, [bgmAudio]);
