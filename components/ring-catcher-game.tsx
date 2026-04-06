@@ -107,12 +107,24 @@ export function RingCatcherGame() {
     });
   }, []);
 
-  // --- 3. 실제 재생 함수 (playSound) ---
+  // --- 3. 실제 재생 함수 (playSound) 황금 밸런스 버전 ---
   const playSound = useCallback((name: string) => {
     const audio = soundRefs.current[name];
     if (audio) {
       audio.pause();       
-      audio.currentTime = 0; // 재생 위치 초기화 (연속 재생 가능)
+      audio.currentTime = 0; // 재생 위치 초기화
+
+      // 🔊 사운드별 맞춤 볼륨 설정 (사용자님의 우려를 반영한 믹싱)
+      if (name === 'catch') {
+        audio.volume = 0.7; // 캐치음은 너무 크지 않게 (70%)
+      } else if (name === 'winner' || name === 'fever') {
+        audio.volume = 1.0; // 승리/피버음은 가장 웅장하게 (100%)
+      } else if (name === 'bomb' || name === 'gameover') {
+        audio.volume = 0.9; // 경고음은 명확하게 (90%)
+      } else {
+        audio.volume = 0.8; // 기타 기본값
+      }
+
       audio.play().catch(e => console.log(`${name} 재생 실패:`, e));
     }
   }, []);
