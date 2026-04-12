@@ -95,7 +95,7 @@ export function RingCatcherGame() {
   useEffect(() => {
     const soundNames = ['catch', 'fever', 'bomb', 'winner', 'gameover'];
     soundNames.forEach(name => {
-      const audio = new Audio(`/sounds/${name}.mp3`);
+      const audio = new Audio(`/sounds/${name}.mp3?v=1`);
       audio.preload = 'auto';
       
       // 파일 로드 실패 시 콘솔에 구체적인 에러를 찍어줍니다.
