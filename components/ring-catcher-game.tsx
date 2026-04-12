@@ -311,8 +311,8 @@ window.addEventListener('click', playOnAction);
 
         // [최종 승리 체크] 2000점 또는 100개
         if (newScore >= 2000 || newCaughtCount >= 100) {
-          stopBackgroundMusic(); 
           playSound('winner'); // pixabay에서 받으신 winner.mp3 재생
+          stopBackgroundMusic(); 
           setIsPlaying(false);
           setIsVictory(true);
           setIsGameOver(false);
