@@ -341,6 +341,7 @@ window.addEventListener('click', playOnAction);
         if (newY > CANVAS_HEIGHT + RING_OUTER_RADIUS) {
           setMissCount((count) => {
             const newCount = count + 1
+            playSound('bomb');
             addBombAnimation(ring.x, CANVAS_HEIGHT - 50, newCount)
             return newCount
           })
@@ -348,6 +349,8 @@ window.addEventListener('click', playOnAction);
           setLives((l) => {
             const newLives = l - 1
             if (newLives <= 0) {
+              stopBackgroundMusic();
+              playSound('gameover');
               setIsGameOver(true)
               setIsPlaying(false)
             }
