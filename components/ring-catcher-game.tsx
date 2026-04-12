@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { AlertCircle, Play, RotateCcw, HelpCircle, Heart } from "lucide-react"
 import { db } from '../lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, onSnapshot } from 'firebase/firestore';
 
 const CANVAS_WIDTH = 400
 const CANVAS_HEIGHT = 600
@@ -90,6 +90,20 @@ export function RingCatcherGame() {
   const [totalPlays, setTotalPlays] = useState(0)
   // 89번 줄 근처에 추가
   const [username, setUsername] = useState<string | null>(null);
+  // 실시간 접속자 수를 저장할 상태
+const [activeUsers, setActiveUsers] = useState(0);
+
+useEffect(() => {
+  // game_results 컬렉션의 변화를 실시간으로 감시합니다.
+  const q = query(collection(db, "game_results"));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    // 저장된 문서의 총 개수를 실시간 인원수로 반영!
+    setActiveUsers(snapshot.size); 
+  });
+  
+  return () => unsubscribe(); // 감시 종료 처리
+}, []);
+
    // --- 1. 사운드 파일 저장소 (useRef) ---
   const soundRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const handleSaveScore = async (finalScore: number) => {
@@ -108,7 +122,26 @@ export function RingCatcherGame() {
       console.error("저장 실패:", e);
     }
   };
- 
+ const handleDonation = () => {
+  if (!window.Pi) {
+    alert("파이 브라우저에서 접속해주세요.");
+    return;
+  }
+
+  const paymentData = {
+    amount: 0.1,
+    memo: "커피 한 잔 기부하기 (0.1 Pi)",
+    metadata: { developer: "dnahstar" }
+  };
+
+  window.Pi.createPayment(paymentData, {
+    onReadyForServerApproval: (id) => console.log("결제 승인 대기:", id),
+    onReadyForServerCompletion: (id, tx) => alert("감사합니다! 커피 맛있게 마실게요! 😊"),
+    onCancel: (id) => console.log("결제 취소"),
+    onError: (err, id) => console.error("에러 발생:", err)
+  });
+};
+
    useEffect(() => {
   const initPi = async () => {
     if (typeof window !== 'undefined' && (window as any).Pi) {
@@ -770,6 +803,15 @@ useEffect(() => {
 }, []); // 앱이 처음 켜질 때 딱 한 번 실행
   return (
     <div className="flex flex-col items-center gap-6">
+      {/* ☕ 개발자 기부 버튼 (로그인 버튼 위) */}
+<div className="flex justify-center mb-2">
+  <button 
+    onClick={handleDonation}
+    className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white font-bold py-2 px-6 rounded-full shadow-md transition-all active:scale-95 text-sm"
+  >
+    ☕ 커피 한 잔 기부하기 (0.1 Pi)
+  </button>
+</div>
       {/* 1. 상단 정보 영역 (접속자 수 & 로그인 버튼) */}
       <div className="w-full max-w-md flex flex-col items-center gap-4">
         
@@ -794,7 +836,7 @@ useEffect(() => {
         {/* 접속자 수 표시 */}
         <div className="flex items-center gap-2 px-4 py-2 bg-white/90 rounded-full shadow-md">
           <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-          <span className="text-base font-bold text-black">{totalPlays.toLocaleString()}</span>
+          <span className="text-base font-bold text-black">{activeUsers}</span>
           <span className="text-xs text-black">명이 즐기는 중</span>
         </div>
       </div>
