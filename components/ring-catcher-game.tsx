@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { AlertCircle, Play, RotateCcw, HelpCircle, Heart } from "lucide-react"
+import { db } from '../lib/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const CANVAS_WIDTH = 400
 const CANVAS_HEIGHT = 600
@@ -90,6 +92,48 @@ export function RingCatcherGame() {
   const [username, setUsername] = useState<string | null>(null);
    // --- 1. 사운드 파일 저장소 (useRef) ---
   const soundRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const handleSaveScore = async (finalScore: number) => {
+    try {
+      // 로그인된 이름이 있으면 쓰고, 없으면 익명으로 저장
+      const userId = username || "anonymous_pioneer";
+      
+      await setDoc(doc(db, "game_results", userId), {
+        username: userId,
+        score: finalScore,
+        updatedAt: serverTimestamp(),
+        appName: "Pioneer-dream"
+      }, { merge: true });
+      console.log("파이 데이터 저장 완료!");
+    } catch (e) {
+      console.error("저장 실패:", e);
+    }
+  };
+ 
+   useEffect(() => {
+  const initPi = async () => {
+    if (typeof window !== 'undefined' && (window as any).Pi) {
+      const Pi = (window as any).Pi;
+      
+      try {
+        // 1. 초기화를 먼저 실행하고 완료될 때까지 기다립니다.
+        await Pi.init({ version: "2.0", sandbox: true });
+        console.log("파이 SDK 초기화 완료");
+
+        // 2. 초기화가 확실히 끝난 후 로그인을 시도합니다.
+        Pi.authenticate(['username'], (onIncompletePaymentFound: any) => {})
+          .then((auth: any) => {
+            setUsername(auth.user.username);
+            console.log("로그인 성공:", auth.user.username);
+          })
+          .catch((err: any) => console.error("인증 실패:", err));
+      } catch (err) {
+        console.error("초기화 중 오류 발생:", err);
+      }
+    }
+  };
+
+  initPi();
+}, []);
 
   // --- 2. 사운드 미리 로드 및 에러 탐지 (useEffect) ---
   useEffect(() => {
@@ -128,6 +172,19 @@ export function RingCatcherGame() {
       audio.play().catch(e => console.log(`${name} 재생 실패:`, e));
     }
   }, []);
+  // --- 점수 저장 로직 ---
+  const saveScoreToFirebase = async (finalScore: number) => {
+    try {
+      await setDoc(doc(db, "game_results", "user_test_id"), {
+        score: finalScore,
+        updatedAt: serverTimestamp(),
+        appName: "Pioneer-dream"
+      }, { merge: true });
+      console.log("점수가 성공적으로 서버에 저장되었습니다!");
+    } catch (e) {
+      console.error("저장 실패:", e);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -138,6 +195,13 @@ export function RingCatcherGame() {
       }
     }
   }, [])
+// 게임 종료(isGameOver)가 true가 되는 순간, 딱 한 번만 점수를 저장합니다.
+
+useEffect(() => {
+  if (isGameOver && score > 0) {
+    handleSaveScore(score);
+  }
+}, [isGameOver, score]); 
 
     // --- BGM 준비 및 중지 로직 ---
   const [bgmAudio] = useState(typeof Audio !== 'undefined' ? new Audio('/sounds/bgm.mp3') : null);
@@ -211,8 +275,8 @@ window.addEventListener('click', playOnAction);
     setScoreAnimations((prev) => [...prev, animation])
 
     setTimeout(() => {
-      setScoreAnimations((prev) => prev.filter((a) => a.id !== animation.id))
-    }, 1000)
+      setScoreAnimations((prev) => prev.filter((a) => a.id !== animation.id));
+    }, 1000);
   }, [])
 
   const addBombAnimation = useCallback((x: number, y: number, missCount: number) => {
@@ -316,6 +380,7 @@ window.addEventListener('click', playOnAction);
           setIsPlaying(false);
           setIsVictory(true);
           setIsGameOver(false);
+          saveScoreToFirebase(newScore);
         } 
         // [Fever 보너스 체크] 500/1000/1500점 또는 25/50/75개
         else if (
@@ -351,8 +416,9 @@ window.addEventListener('click', playOnAction);
             if (newLives <= 0) {
               stopBackgroundMusic();
               playSound('gameover');
-              setIsGameOver(true)
-              setIsPlaying(false)
+              setIsGameOver(true);
+              setIsPlaying(false);
+            
             }
             return newLives
           })

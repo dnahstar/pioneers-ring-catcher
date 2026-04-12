@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -57,6 +58,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <head>
+       <Script src="https://sdk.minepi.com/pi-sdk.js" 
+    strategy="beforeInteractive" 
+  />
         <meta charSet="utf-8" />
         <meta httpEquiv="x-ua-compatible" content="ie=edge" />
         <link rel="icon" href="/favicon.ico" />
