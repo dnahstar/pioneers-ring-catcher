@@ -133,7 +133,7 @@ useEffect(() => {
     memo: "커피 한 잔 기부하기 (0.1 Pi)",
     metadata: { developer: "dnahstar" }
   };
-
+// @ts-ignore
   window.Pi.createPayment(paymentData, {
     onReadyForServerApproval: (id) => console.log("결제 승인 대기:", id),
     onReadyForServerCompletion: (id, tx) => alert("감사합니다! 커피 맛있게 마실게요! 😊"),
