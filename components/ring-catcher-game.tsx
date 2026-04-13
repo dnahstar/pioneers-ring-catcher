@@ -109,28 +109,22 @@ useEffect(() => {
   const soundRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const handleSaveScore = async (finalScore: number) => {
   try {
+    // 1. 현재 로그인된 ID가 없으면 'anonymous_pioneer'로 저장
     const userId = username || "anonymous_pioneer";
-    const userRef = doc(db, "game_results", userId);
+    
+    // 2. 승리 여부 확인 (2000점 이상 또는 고리 100개 이상)
+    const isVictory = finalScore >= 2000 || caughtCount >= 100;
 
-    // 기본 저장 데이터 (점수 등)
-    const dataToSave: any = {
+    await setDoc(doc(db, "game_results", userId), {
       username: userId,
       score: finalScore,
       updatedAt: serverTimestamp(),
-      appName: "Pioneer-dream"
-    };
+      appName: "Pioneer-dream",
+      // 승리했을 때만 victoryCount를 1씩 증가시킴
+      victoryCount: isVictory ? increment(1) : increment(0)
+    }, { merge: true });
 
-    // 🏆 승리 조건(2000점) 달성 시 승리 횟수 1 증가 추가
-    if (finalScore >= 2000) {
-      dataToSave.victoryCount = increment(1);
-      dataToSave.lastVictory = serverTimestamp();
-      
-      // 화면에 바로 반영하기 위해 상태 업데이트
-      setVictoryCount(prev => prev + 1);
-    }
-
-    await setDoc(userRef, dataToSave, { merge: true });
-    console.log("파이 데이터 저장 완료!");
+    console.log("데이터 저장 완료!");
   } catch (e) {
     console.error("저장 실패:", e);
   }
