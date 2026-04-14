@@ -94,39 +94,69 @@ export function RingCatcherGame() {
 const [activeUsers, setActiveUsers] = useState(0);
 const [victoryCount, setVictoryCount] = useState(0);
 
+// 96번 줄 근처 useEffect 수정
 useEffect(() => {
-  // game_results 컬렉션의 변화를 실시간으로 감시합니다.
-  const q = query(collection(db, "game_results"));
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    // 저장된 문서의 총 개수를 실시간 인원수로 반영!
-    setActiveUsers(snapshot.size); 
+  if (!username) return; // 아이디가 확인 안 되면 실행 안 함
+
+  // 해당 유저의 문서를 실시간 감시 (OnSnapshot)
+  const userRef = doc(db, "game_results", username);
+  const unsubscribe = onSnapshot(userRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      // 서버에 저장된 승리 횟수를 로컬 상태에 실시간 반영
+      setVictoryCount(data.victoryCount || 0);
+    }
   });
-  
-  return () => unsubscribe(); // 감시 종료 처리
-}, []);
+
+  return () => unsubscribe();
+}, [username]);
+
 
    // --- 1. 사운드 파일 저장소 (useRef) ---
   const soundRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const handleSaveScore = async (finalScore: number) => {
-  try {
-    // 1. 현재 로그인된 ID가 없으면 'anonymous_pioneer'로 저장
-    const userId = username || "anonymous_pioneer";
-    
-    // 2. 승리 여부 확인 (2000점 이상 또는 고리 100개 이상)
-    const isVictory = finalScore >= 2000 || caughtCount >= 100;
+ // 96번 줄 근처 useEffect 수정
+useEffect(() => {
+  if (!username) return; // 아이디가 확인 안 되면 실행 안 함
 
-    await setDoc(doc(db, "game_results", userId), {
-      username: userId,
+  // 해당 유저의 문서를 실시간 감시 (OnSnapshot)
+  const userRef = doc(db, "game_results", username);
+  const unsubscribe = onSnapshot(userRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      // 서버에 저장된 승리 횟수를 로컬 상태에 실시간 반영
+      setVictoryCount(data.victoryCount || 0);
+    }
+  });
+
+  return () => unsubscribe();
+}, [username]);
+
+
+
+
+const handleSaveScore = async (finalScore: number) => {
+  // 1. 유저 아이디가 없으면 저장 자체를 시도하지 않음 (서버 보호)
+  if (!username) {
+    console.error("인증된 사용자가 아닙니다.");
+    return;
+  }
+
+  try {
+    const userRef = doc(db, "game_results", username);
+    const isVictory = finalScore >= 2000;
+
+    // 2. 서버 데이터 업데이트
+    await setDoc(userRef, {
+      username: username,
       score: finalScore,
       updatedAt: serverTimestamp(),
-      appName: "Pioneer-dream",
-      // 승리했을 때만 victoryCount를 1씩 증가시킴
+      // 승리했을 때만 정확히 1 증가, 아니면 그대로 유지
       victoryCount: isVictory ? increment(1) : increment(0)
     }, { merge: true });
 
-    console.log("데이터 저장 완료!");
+    console.log(`${username}님의 데이터가 성공적으로 동기화되었습니다.`);
   } catch (e) {
-    console.error("저장 실패:", e);
+    console.error("데이터 전송 중 오류 발생:", e);
   }
 };
 
