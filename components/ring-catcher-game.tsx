@@ -169,7 +169,7 @@ const handleSaveScore = async (finalScore: number) => {
   const paymentData = {
     amount: 0.1,
     memo: "커피 한 잔 기부하기 (0.1 Pi)",
-    metadata: { developer: "dnahstar" }
+    metadata: { developer: "levelup25" }
   };
 // @ts-ignore
   window.Pi.createPayment(paymentData, {
