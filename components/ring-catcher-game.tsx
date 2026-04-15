@@ -136,9 +136,7 @@ useEffect(() => {
 
 const handleSaveScore = async (finalScore: number) => {
   // 1. 유저 아이디가 없으면 저장 자체를 시도하지 않음 (서버 보호)
-  if (!username || username ===
-    "user_test_id" || username ===
-    "anonymous_pioneer") {
+  if (!username) {
     console.error("인증된 사용자가 아닙니다.");
     return;
   }
@@ -248,7 +246,7 @@ const handleSaveScore = async (finalScore: number) => {
   // --- 점수 저장 로직 ---
   const saveScoreToFirebase = async (finalScore: number) => {
     try {
-      await setDoc(doc(db, "game_results", "user_test_id"), {
+      await setDoc(doc(db, "game_results", "username"), {
         score: finalScore,
         updatedAt: serverTimestamp(),
         appName: "Pioneer-dream"
