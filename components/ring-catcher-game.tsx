@@ -91,6 +91,8 @@ export function RingCatcherGame() {
   // 89번 줄 근처에 추가
   const [username, setUsername] = useState<string | null>(null);
   // 실시간 접속자 수를 저장할 상태
+  const usernameRef = useRef(username);
+useEffect(() => { usernameRef.current = username; }, [username]);
 const [activeUsers, setActiveUsers] = useState(0);
 const [victoryCount, setVictoryCount] = useState(0);
 
@@ -741,7 +743,7 @@ window.addEventListener('click', playOnAction);
   useEffect(() => {
     if ((score >= 2000 || caughtCount >= 100) && isPlaying && username) {
       setIsVictory(true)
-      handleSaveScore(score >= 2000 ? score : 2000, username);
+      handleSaveScore(score >= 2000 ? score : 2000, usernameRef.current || username);
       setIsPlaying(false)
       stopBackgroundMusic()
       if (dropIntervalRef.current) {
