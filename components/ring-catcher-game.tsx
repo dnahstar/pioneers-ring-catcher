@@ -739,7 +739,7 @@ window.addEventListener('click', playOnAction);
   }, [caughtCount, lastSuperCaughtMilestone, addScoreAnimation])
 
   useEffect(() => {
-    if ((score >= 2000 || caughtCount >= 100) && isPlaying) {
+    if ((score >= 2000 || caughtCount >= 100) && isPlaying && username) {
       setIsVictory(true)
       handleSaveScore(score >= 2000 ? score : 2000, username);
       setIsPlaying(false)
@@ -754,7 +754,7 @@ window.addEventListener('click', playOnAction);
         setHighScore(score)
       }
     }
-  }, [score, caughtCount, isPlaying, highScore, stopBackgroundMusic])
+  }, [score, caughtCount, isPlaying, highScore, stopBackgroundMusic, username])
 
   const startGame = useCallback(() => {
     setScore(0)
