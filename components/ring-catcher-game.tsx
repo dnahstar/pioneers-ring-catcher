@@ -273,7 +273,7 @@ if (!currentUsername || currentUsername === "username" || currentUsername === "n
 
 useEffect(() => {
   if (isGameOver && score > 0) {
-    handleSaveScore(score, username);
+    handleSaveScore(score, usernameRef.current || username);
   }
 }, [isGameOver, score]); 
 
