@@ -136,7 +136,7 @@ useEffect(() => {
 
 const handleSaveScore = async (finalScore: number, currentUsername: string) => {
   // 1. 유저 아이디가 없으면 저장 자체를 시도하지 않음 (서버 보호)
-  if (!username) {
+  if (!currentUsername) {
     console.error("인증된 사용자가 아닙니다.");
     return;
   }
@@ -147,7 +147,7 @@ const handleSaveScore = async (finalScore: number, currentUsername: string) => {
 
     // 2. 서버 데이터 업데이트
     await setDoc(userRef, {
-      username: username,
+      username: currentUsername,
       score: finalScore,
       updatedAt: serverTimestamp(),
       // 승리했을 때만 정확히 1 증가, 아니면 그대로 유지
