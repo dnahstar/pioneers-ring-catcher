@@ -273,7 +273,7 @@ if (!currentUsername || currentUsername === "username" || currentUsername === "n
 
 useEffect(() => {
   if (isGameOver && score > 0) {
-    handleSaveScore(score, usernameRef.current || username);
+    handleSaveScore(score, usernameRef.current);
   }
 }, [isGameOver, score]); 
 
@@ -742,9 +742,9 @@ window.addEventListener('click', playOnAction);
   }, [caughtCount, lastSuperCaughtMilestone, addScoreAnimation])
 
   useEffect(() => {
-    if ((score >= 2000 || caughtCount >= 100) && isPlaying && username) {
+    if ((score >= 2000 || caughtCount >= 100) && isPlaying && usernameRef.current) {
       setIsVictory(true)
-      handleSaveScore(score >= 2000 ? score : 2000, usernameRef.current || username);
+      handleSaveScore(score >= 2000 ? score : 2000, usernameRef.current);
       setIsPlaying(false)
       stopBackgroundMusic()
       if (dropIntervalRef.current) {
