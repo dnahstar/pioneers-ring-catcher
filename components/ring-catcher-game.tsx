@@ -139,32 +139,38 @@ useEffect(() => {
 // "isVictory" 변수를 인자로 받지 말고 "finalScore"만 믿고 갑니다.
 
 const handleSaveScore = async (finalScore: number, currentUsername: string) => {
-  // 아이디 체크 (파이 브라우저에서 읽어온 값 그대로 사용)
-  if (!currentUsername || currentUsername === "username") return;
+  // 1. 아이디가 없으면 'pioneer_temp'라고 강제로 이름을 지어줍니다 (차단 방지)
+  const safeId = (!currentUsername || currentUsername === "username" || currentUsername === "null") 
+                 ? "pioneer_temp" 
+                 : currentUsername;
+
+  console.log("🚀 저장 시도 아이디:", safeId);
 
   try {
-    const userRef = doc(db, "game_results", currentUsername);
-    const historyRef = doc(collection(db, "game_results", currentUsername, "history"));
+    const userMainRef = doc(db, "game_results", safeId);
+    const userHistoryRef = doc(collection(db, "game_results", safeId, "history"));
 
-    // 1. 히스토리는 점수 상관없이 무조건 저장
-    await setDoc(historyRef, {
+    // 2. 히스토리 저장 (await를 써서 확실히 기다립니다)
+    await setDoc(userHistoryRef, {
+      username: safeId,
       score: finalScore,
       updatedAt: serverTimestamp()
     });
 
-    // 2. 승리 누적 (여기서 2000점을 직접 숫자로 비교합니다)
+    // 3. 2000점 승리 시 메인 필드 업데이트
     if (Number(finalScore) >= 2000) {
-      await setDoc(userRef, {
-        victoryCount: increment(1), // 이 명령어가 파이어베이스에서 숫자를 1씩 더해줍니다.
-        lastVictoryScore: finalScore,
+      await setDoc(userMainRef, {
+        victoryCount: increment(1),
         lastVictoryAt: serverTimestamp(),
-        username: currentUsername
+        lastScore: finalScore,
+        username: safeId
       }, { merge: true });
       
-      console.log("🏆 파이 브라우저 승리 누적 성공!");
+      alert("🎉 승리 데이터가 서버에 안전하게 기록되었습니다!");
     }
   } catch (e) {
-    console.error("❌ 파이 브라우저 저장 실패:", e);
+    console.error("❌ 서버 전송 실패:", e);
+    alert("저장 실패: " + e.message);
   }
 };
 
