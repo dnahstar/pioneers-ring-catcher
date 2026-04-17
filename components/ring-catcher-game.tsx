@@ -98,7 +98,7 @@ const [victoryCount, setVictoryCount] = useState(0);
 
 // 96번 줄 근처 useEffect 수정
 useEffect(() => {
-  if (!username || username === "username") return; // 아이디가 확인 안 되면 실행 안 함
+  if (!username || username === "username" || username === "") return; // 아이디가 확인 안 되면 실행 안 함
 console.log;
 
   // 해당 유저의 문서를 실시간 감시 (OnSnapshot)
@@ -135,43 +135,49 @@ useEffect(() => {
 }, [username]);
 
 
+// 138번 줄부터 시작되는 handleSaveScore 함수입니다.
 const handleSaveScore = async (finalScore: number, currentUsername: string) => {
-  // 1. 유저 아이디가 없으면 저장 자체를 시도하지 않음 (서버 보호)
- // 138번 줄 부근 수정
-if (!currentUsername || currentUsername === "username" || currentUsername === "null") {
-  console.error("❌ 유효하지 않은 이름으로 저장을 시도함:", currentUsername);
-  return; // 여기서 함수를 끝내버려서 서버 저장을 차단합니다.
-}
+  // 1. 보안 및 검증: 이름이 없거나 기본값이면 아예 시작도 안 함
+  if (!currentUsername || currentUsername === "username" || currentUsername === "null") {
+    console.error("❌ 유효하지 않은 이름으로 저장을 시도함:", currentUsername);
+    return;
+  }
 
-  try {
-    if (!currentUsername || currentUsername === "username" || 
-      currentUsername === "null"
-    ) {console.error("X유효하지않은 이름으로 저장을 시도함:", currentUsername); 
-      return;
-    }
+  // 2. 실제 저장 로직 시작
+  const saveGameResult = async () => {
+    try {
+      const userHistoryRef = doc(collection(db, "game_results", currentUsername, "history"));
+      const userMainRef = doc(db, "game_results", currentUsername);
+      
+      // 승리 여부를 함수 내부에서 다시 한번 확실히 체크 (2000점 기준)
+      const isActuallyWon = finalScore >= 2000;
 
-    const userHistoryRef = doc(collection(db, "game_results", currentUsername, "history"));
-    const userMainRef = doc(db, "game_results", currentUsername);
-    const isVictory = finalScore >= 2000;
+      // (A) 히스토리 기록 저장
+      await setDoc(userHistoryRef, {
+        username: currentUsername,
+        score: finalScore,
+        updatedAt: serverTimestamp()
+      });
 
-    // 2. 서버 데이터 업데이트
-    await setDoc(userHistoryRef, {
-      username: currentUsername,
-      score: finalScore,
-      updatedAt: serverTimestamp()
-    });
-      // 승리했을 때만 정확히 1 증가, 아니면 그대로 유지
-      if(isVictory) {
+      // (B) 승리했을 때만 누적 데이터 업데이트
+      if (isActuallyWon) {
         await setDoc(userMainRef, {
-      victoryCount: increment(1),
-      lastVictoryAt: serverTimestamp()
-    }, { merge: true });
-  }
+          victoryCount: increment(1),
+          lastVictoryAt: serverTimestamp(),
+          lastScore: finalScore,
+          username: currentUsername
+        }, { merge: true });
+        console.log("🏆 승리 데이터가 성공적으로 업데이트되었습니다!");
+      }
 
-    console.log(`${currentUsername}님의 데이터가 성공적으로 동기화되었습니다.`);
-  } catch (e) {
-    console.error("데이터 전송 중 오류 발생:", e);
-  }
+      console.log(`${currentUsername}님의 전체 데이터 동기화 완료.`);
+    } catch (e) {
+      console.error("데이터 전송 중 오류 발생:", e);
+    }
+  };
+
+  // 정의한 함수를 실행
+  await saveGameResult();
 };
 
  const handleDonation = () => {
