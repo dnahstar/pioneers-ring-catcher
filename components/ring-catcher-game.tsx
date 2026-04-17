@@ -145,7 +145,7 @@ if (!currentUsername || currentUsername === "username" || currentUsername === "n
   try {
     if (!currentUsername || currentUsername === "username") return;
 
-    const userRef = doc(collection(db, "game_results", currentUsername, "history"));
+    const userRef = doc(db, "game_results", currentUsername);
     const isVictory = finalScore >= 2000;
 
     // 2. 서버 데이터 업데이트
