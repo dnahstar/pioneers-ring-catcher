@@ -895,7 +895,7 @@ useEffect(() => {
     {/* 오른쪽: 누적 승리 (최고 점수 대체) */}
     <div className="text-right">
       <div className="text-sm text-black/70">승리보상</div>
-      <div className="text-2xl font-semibold text-black">🏆🏆</div>
+      <div className="text-2xl font-semibold text-black">🏆</div>
     </div>
   </div>
 
