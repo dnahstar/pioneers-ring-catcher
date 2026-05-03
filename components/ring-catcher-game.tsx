@@ -98,64 +98,76 @@ const [victoryCount, setVictoryCount] = useState(0);
 
    // --- 1. 사운드 파일 저장소 (useRef) ---
   const soundRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
- // 96번 줄 근처 useEffect 수정
-  useEffect(() => {
-    // 1. 여기서도 'lost n found' 로직을 똑같이 적용합니다.
+ // 102번 줄부터 시작
+useEffect(() => {
+  // --- [로직 A: 나의 누적 승리 횟수 감시] ---
+  const actualId = (username && username !== "username" && username !== "null") 
+                   ? username 
+                   : "lost n found";
+                   
+  const victoryQuery = collection(db, "game_results", actualId, "victories");
+  const unsubscribeVictory = onSnapshot(victoryQuery, (snapshot) => {
+    setVictoryCount(snapshot.size);
+  });
+
+  // --- [로직 B: 최근 24시간 접속자 수 감시] ---
+  // 모든 유저의 'history' 컬렉션을 한꺼번에 훑습니다.
+  const activeUsersQuery = query(
+    collectionGroup(db, "history"),
+    where("updatedAt", ">=", new Date(Date.now() - 24 * 60 * 60 * 1000))
+  );
+
+  const unsubscribeActive = onSnapshot(activeUsersQuery, (snapshot) => {
+    const uniqueUsers = new Set();
+    snapshot.forEach((doc) => {
+      uniqueUsers.add(doc.data().username); // history에 저장된 유저명 기준 중복 제거
+    });
+    setActiveUsers(uniqueUsers.size);
+  });
+
+  // 클린업: 페이지를 나갈 때 감시를 종료합니다.
+  return () => {
+    if (unsubscribeVictory) unsubscribeVictory();
+    if (unsubscribeActive) unsubscribeActive();
+  };
+}, [username]); // 118번 줄 끝
+
+
+// 124번 줄: 인자에서 currentUsername을 제거하여 실수를 방지합니다.
+const handleSaveScore = async (finalScore: number) => { 
+    
+    // 함수 밖의 username 상태를 직접 참조하여 actualId 결정
     const actualId = (username && username !== "username" && username !== "null") 
                      ? username 
                      : "lost n found";
 
-    // 2. 정제된 actualId를 사용하여 경로 설정
-    const victoryQuery = collection(db, "game_results", actualId, "victories");
+    console.log(`📦 [${actualId}] 경로로 저장을 시작합니다.`);
 
-    const unsubscribe = onSnapshot(victoryQuery, (snapshot) => {
-      setVictoryCount(snapshot.size);
-    });
+    try {
+        // 1. 모든 플레이 기록 (history 하위 컬렉션)
+        const historyRef = doc(collection(db, "game_results", actualId, "history"));
+        await setDoc(historyRef, {
+            username: actualId,
+            score: finalScore,
+            updatedAt: serverTimestamp()
+        });
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [username]); // 감시는 원래 변수인 username으로 합니다.
-
-
-// handleSaveScore 부분을 아래 내용으로 완전히 교체하세요. 
-// "isVictory" 변수를 인자로 받지 말고 "finalScore"만 믿고 갑니다.
-
-const handleSaveScore = async (finalScore: number, currentUsername: string) => {
-  // 1. 아이디가 없거나 기본값('username', 'null')이면 'lost n found'로 명명
-  const actualId = (currentUsername && currentUsername !== "username" && currentUsername !== "null") 
-                   ? currentUsername 
-                   : "lost n found"; 
-
-  console.log(`📦 데이터가 [${actualId}] 우체통으로 배달됩니다.`);
-
-  try {
-    // 2. 히스토리 저장 (유저별 또는 lost n found 폴더)
-    const historyRef = doc(collection(db, "game_results", actualId, "history"));
-    await setDoc(historyRef, {
-      username: actualId,
-      score: finalScore,
-      updatedAt: serverTimestamp()
-    });
-
-    // 3. 승리 시 하위 컬렉션에 기록 (누적 승리용)
-    if (Number(finalScore) >= 2000) {
-      const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
-      
-      await setDoc(victoryLogRef, {
-        wonAt: serverTimestamp(),
-        score: finalScore,
-        username: actualId
-      });
-      
-      // 사용자 경험을 위해 아이디가 있을 때만 축하 팝업
-      if (actualId !== "lost n found") {
-        alert(`🎉 ${actualId}님, 승리 기록이 안전하게 보관되었습니다!`);
-      }
+        // 2. 2000점 이상 승리 기록 (victories 하위 컬렉션)
+        if (Number(finalScore) >= 2000) {
+            const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
+            await setDoc(victoryLogRef, {
+                wonAt: serverTimestamp(),
+                score: finalScore,
+                username: actualId
+            });
+            
+            if (actualId !== "lost n found") {
+                alert(`🎉 ${actualId}님, 승리가 기록되었습니다!`);
+            }
+        }
+    } catch (e) {
+        console.error("❌ 전송 실패:", e);
     }
-  } catch (e) {
-    console.error("❌ 전송 실패:", e);
-  }
 };
 
  const handleDonation = () => {
@@ -894,8 +906,8 @@ useEffect(() => {
 
     {/* 오른쪽: 누적 승리 (최고 점수 대체) */}
     <div className="text-right">
-      <div className="text-sm text-black/70">승리보상</div>
-      <div className="text-2xl font-semibold text-black">🏆</div>
+      <div className="text-sm text-black/70">누적점수</div>
+      <div className="text-2xl font-semibold text-black">{victoryCount}회</div>
     </div>
   </div>
 
