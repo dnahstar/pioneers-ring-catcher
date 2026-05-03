@@ -134,7 +134,7 @@ useEffect(() => {
 
 
 // 124번 줄: 인자에서 currentUsername을 제거하여 실수를 방지합니다.
-const handleSaveScore = async (finalScore: number) => { 
+const handleSaveScore = async ({ score, username }: { score: number; username: string }) => { if (!db) return;
     
     // 함수 밖의 username 상태를 직접 참조하여 actualId 결정
     const actualId = (username && username !== "username" && username !== "null") 
