@@ -906,7 +906,7 @@ useEffect(() => {
 
     {/* 오른쪽: 누적승리 (최고 점수 대체) */}
     <div className="text-right">
-      <div className="text-sm text-black/70">누적점수</div>
+      <div className="text-sm text-black/70">누적승리</div>
       <div className="text-2xl font-semibold text-black">{victoryCount}회</div>
     </div>
   </div>
