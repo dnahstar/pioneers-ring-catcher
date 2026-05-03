@@ -904,7 +904,7 @@ useEffect(() => {
       <div className="text-2xl font-semibold text-black">{lives}</div>
     </div>
 
-    {/* 오른쪽: 누적 승리 (최고 점수 대체) */}
+    {/* 오른쪽: 누적승리 (최고 점수 대체) */}
     <div className="text-right">
       <div className="text-sm text-black/70">누적점수</div>
       <div className="text-2xl font-semibold text-black">{victoryCount}회</div>
