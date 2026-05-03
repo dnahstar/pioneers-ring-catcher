@@ -751,7 +751,7 @@ window.addEventListener('click', playOnAction);
   useEffect(() => {
     if ((score >= 2000 || caughtCount >= 100) && isPlaying && usernameRef.current) {
       setIsVictory(true)
-      handleSaveScore(score >= 2000 ? score : 2000, usernameRef.current);
+      handleSaveScore({ score: score >= 2000 ? score : 2000, username: usernameRef.current });
       setIsPlaying(false)
       stopBackgroundMusic()
       if (dropIntervalRef.current) {
