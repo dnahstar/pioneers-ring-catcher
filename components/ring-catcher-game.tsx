@@ -280,7 +280,7 @@ const handleSaveScore = async (finalScore: number) => {
 
 useEffect(() => {
   if (isGameOver && score > 0) {
-    handleSaveScore(score, usernameRef.current);
+    handleSaveScore({ score, username: usernameRef.current });
   }
 }, [isGameOver, score]); 
 
