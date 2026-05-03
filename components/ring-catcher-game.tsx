@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { AlertCircle, Play, RotateCcw, HelpCircle, Heart } from "lucide-react"
 import { db } from '../lib/firebase';
-import { doc, setDoc, serverTimestamp, collection, query, onSnapshot, increment } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, collectionGroup, query, onSnapshot, increment, where } from 'firebase/firestore';
 
 const CANVAS_WIDTH = 400
 const CANVAS_HEIGHT = 600
