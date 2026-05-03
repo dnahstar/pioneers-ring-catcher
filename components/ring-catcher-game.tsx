@@ -751,7 +751,7 @@ window.addEventListener('click', playOnAction);
   }, [caughtCount, lastSuperCaughtMilestone, addScoreAnimation])
 
   useEffect(() => {
-    if ((score >= 2000 || caughtCount >= 100) && isPlaying && usernameRef.current) {
+    if ((score >= 2000 || caughtCount >= 100) && usernameRef.current) {
       setIsVictory(true)
       handleSaveScore({ score: score >= 2000 ? score : 2000, username: usernameRef.current });
       setIsPlaying(false)
