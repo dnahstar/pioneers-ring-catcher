@@ -133,41 +133,43 @@ useEffect(() => {
 }, [username]); // 118번 줄 끝
 
 
-// 124번 줄: 인자에서 currentUsername을 제거하여 실수를 방지합니다.
-const handleSaveScore = async ({ score, username }: { score: number; username: string }) => { if (!db) return;
-    
-    // 함수 밖의 username 상태를 직접 참조하여 actualId 결정
-    const actualId = (username && username !== "username" && username !== "null") 
-                     ? username 
-                     : "lost n found";
+const handleSaveScore = async ({ score, username }: { score: number; username: string }) => {
+  // 1. 아이디 결정 (우선순위: 전달받은 이름 > Ref 이름 > 기본값)
+  let actualId = username || usernameRef.current || "Pioneer";
+  
+  // 만약 시스템 기본값들이 들어왔다면 강제로 Pioneer로 변경
+  if (actualId === "username" || actualId === "null" || !actualId) {
+    actualId = "Pioneer";
+  }
 
-    console.log(`📦 [${actualId}] 경로로 저장을 시작합니다.`);
+  console.log(`🚀 [저장 시작] 대상: ${actualId}, 점수: ${score}`);
 
-    try {
-        // 1. 모든 플레이 기록 (history 하위 컬렉션)
-        const historyRef = doc(collection(db, "game_results", actualId, "history"));
-        await setDoc(historyRef, {
-            username: actualId,
-            score: score,
-            updatedAt: serverTimestamp()
-        });
+  try {
+    // 2. 모든 플레이 기록 저장 (history)
+    const historyRef = doc(collection(db, "game_results", actualId, "history"));
+    await setDoc(historyRef, {
+      username: actualId,
+      score: Number(score),
+      updatedAt: serverTimestamp()
+    });
 
-        // 2. 2000점 이상 승리 기록 (victories 하위 컬렉션)
-        if (Number(score) >= 2000) {
-            const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
-            await setDoc(victoryLogRef, {
-                wonAt: serverTimestamp(),
-                score: score,
-                username: actualId
-            });
-            
-            if (actualId !== "lost n found") {
-                alert(`🎉 ${actualId}님, 승리가 기록되었습니다!`);
-            }
-        }
-    } catch (e) {
-        console.error("❌ 전송 실패:", e);
+    // 3. 승리 기록 저장 (2000점 이상)
+    if (Number(score) >= 2000) {
+      console.log("🏆 승리 데이터 전송 중...");
+      const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
+      await setDoc(victoryLogRef, {
+        wonAt: serverTimestamp(),
+        score: Number(score),
+        username: actualId
+      });
+      
+      // ✅ 이 알림창이 떠야 백엔드 전송이 성공한 것입니다!
+      alert(`🎉 승리가 기록되었습니다! (ID: ${actualId})`);
     }
+  } catch (e) {
+    console.error("❌ 전송 실패:", e);
+    alert("데이터 저장 중 오류가 발생했습니다.");
+  }
 };
 
  const handleDonation = () => {
