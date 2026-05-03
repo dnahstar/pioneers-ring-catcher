@@ -153,11 +153,11 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
         });
 
         // 2. 2000점 이상 승리 기록 (victories 하위 컬렉션)
-        if (Number(finalScore) >= 2000) {
+        if (Number(score) >= 2000) {
             const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
             await setDoc(victoryLogRef, {
                 wonAt: serverTimestamp(),
-                score: finalScore,
+                score: score,
                 username: actualId
             });
             
