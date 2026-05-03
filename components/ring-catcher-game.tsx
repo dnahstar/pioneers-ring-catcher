@@ -148,7 +148,7 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
         const historyRef = doc(collection(db, "game_results", actualId, "history"));
         await setDoc(historyRef, {
             username: actualId,
-            score: finalScore,
+            score: score,
             updatedAt: serverTimestamp()
         });
 
