@@ -210,33 +210,28 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
 
 
    useEffect(() => {
-      const initPi = async () => {
+       const initPi = async () => {
       if (typeof window !== 'undefined' && (window as any).Pi) {
         const Pi = (window as any).Pi;
         try {
-          // 1. 초기화 실행
+          // 1. 초기화 (버전 문자열 확인)
           await Pi.init({ version: "2.0", sandbox: true });
           console.log("파이 SDK 초기화 완료");
 
-          // 2. 인증 시도
-          Pi.authenticate(['username'], (onIncompletePaymentFound: any) => {})
-            .then((auth: any) => {
-              setUsername(auth.user.username);
-              console.log("로그인 성공:", auth.user.username);
-            })
-            .catch((err: any) => {
-              console.error("인증 실패:", err);
-              alert("인증 에러가 발생했습니다: " + JSON.stringify(err));
-            });
+          // 2. 인증 (초기화 완료 후 실행)
+          const auth = await Pi.authenticate(['username'], (onIncompletePaymentFound: any) => {
+            console.log("미완료 결제 발견:", onIncompletePaymentFound);
+          });
+          
+          setUsername(auth.user.username);
+          console.log("로그인 성공:", auth.user.username);
         } catch (err: any) {
-          console.error("초기화 중 오류 발생:", err);
-          alert("초기화 에러가 발생했습니다: " + JSON.stringify(err));
+          console.error("초기화/인증 에러:", err);
+          alert("준비 에러: " + JSON.stringify(err));
         }
       }
     };
 
-    initPi();
-  }, []);
   
   // --- 2. 사운드 미리 로드 및 에러 탐지 (useEffect) ---
   useEffect(() => {
