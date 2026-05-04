@@ -172,17 +172,15 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
   }
 };
 
-    const handleDonation = () => {
-    alert("기부 버튼 클릭됨!");
-
+      const handleDonation = () => {
     const piWindow = window as any;
+    const Pi = piWindow.Pi; // 변수에 담아서 직접 확인
 
-    if (!piWindow.Pi) {
-      alert("파이 브라우저에서 접속해주세요.");
+    if (!Pi || !Pi.createPayment) {
+      alert("결제 기능을 아직 사용할 수 없습니다. 잠시 후 다시 시도하거나 파이 브라우저를 새로고침 해주세요.");
       return;
     }
 
-    // 파이 SDK가 요구하는 정확한 데이터 형식인지 확인이 필요합니다.
     const paymentData = {
       amount: 0.1,
       memo: "커피 한 잔 기부하기 (0.1 Pi)",
@@ -190,8 +188,8 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
     };
 
     try {
-      alert("결제 창을 요청합니다...");
-      piWindow.Pi.createPayment(paymentData, {
+      // 직접 Pi 객체에서 함수를 호출합니다.
+      Pi.createPayment(paymentData, {
         onReadyForServerApproval: (id: string) => {
           alert("서버 승인 대기 중... ID: " + id);
         },
@@ -202,18 +200,14 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
           alert("결제가 취소되었습니다.");
         },
         onError: (err: any, id?: string) => {
-          // 상세 에러 내용을 JSON으로 풀어서 보여줍니다.
-          alert("결제 에러 발생: " + JSON.stringify(err));
+          alert("결제 에러: " + JSON.stringify(err));
         },
       });
     } catch (err: any) {
-      // 이 부분이 {}로 떴던 곳입니다. 상세 내용을 강제로 출력합니다.
-      const errorMsg = err.message || "상세 메시지 없음";
-      const errorStack = err.stack || "스택 정보 없음";
-      alert("함수 호출 실패 상세:\n메시지: " + errorMsg + "\n종류: " + String(err));
-      console.error("Full Error:", err);
+      alert("실행 실패: " + err.message);
     }
   };
+
 
    useEffect(() => {
       const initPi = async () => {
