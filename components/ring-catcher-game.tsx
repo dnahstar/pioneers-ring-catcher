@@ -456,15 +456,21 @@ window.addEventListener('click', playOnAction);
         const newScore = score + ring.points;
         const newCaughtCount = caughtCount + 1;
 
-        // [최종 승리 체크] 2000점 또는 100개
-        if (newScore >= 2000 || newCaughtCount >= 100) {
-          playSound('winner'); // pixabay에서 받으신 winner.mp3 재생
-          stopBackgroundMusic(); 
-          setIsPlaying(false);
-          setIsVictory(true);
-          setIsGameOver(false);
-          saveScoreToFirebase(newScore);
-        } 
+            // [최종 승리 체크] 2000점 또는 100개
+    if (newScore >= 2000 || newCaughtCount >= 100) {
+      stopBackgroundMusic();
+      playSound('winner'); // 승리 사운드 즉시 재생
+      
+      setIsVictory(true);
+      setIsGameOver(false);
+      saveScoreToFirebase(newScore);
+
+      // 💡 사운드가 끊기지 않도록 게임 정지(상태변경)를 0.15초만 늦춥니다.
+      setTimeout(() => {
+        setIsPlaying(false);
+      }, 150);
+    }
+
         // [Fever 보너스 체크] 500/1000/1500점 또는 25/50/75개
         else if (
           (newScore > 0 && [500, 1000, 1500].includes(newScore)) || 
