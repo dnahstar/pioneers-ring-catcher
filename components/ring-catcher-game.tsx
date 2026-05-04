@@ -219,18 +219,22 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
           console.log("파이 SDK 초기화 완료");
 
           // 2. 인증 (초기화 완료 후 실행)
-          const auth = await Pi.authenticate(['username'], (onIncompletePaymentFound: any) => {
+          const auth =  // 2. 인증 시 'payments' 권한을 반드시 요청해야 합니다.
+          await Pi.authenticate(['username', 'payments'], (onIncompletePaymentFound: any) => {
             console.log("미완료 결제 발견:", onIncompletePaymentFound);
           });
           
           setUsername(auth.user.username);
           console.log("로그인 성공:", auth.user.username);
-        } catch (err: any) {
+         } catch (err: any) {
           console.error("초기화/인증 에러:", err);
-          alert("준비 에러: " + JSON.stringify(err));
         }
       }
     };
+
+    initPi();
+  }, []); // 괄호와 세미콜론이 정확히 닫혀야 합니다!
+
 
   
   // --- 2. 사운드 미리 로드 및 에러 탐지 (useEffect) ---
