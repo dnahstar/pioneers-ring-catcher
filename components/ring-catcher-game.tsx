@@ -208,9 +208,15 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
             setUsername(auth.user.username);
             console.log("로그인 성공:", auth.user.username);
           })
-          .catch((err: any) => console.error("인증 실패:", err));
-      } catch (err) {
-        console.error("초기화 중 오류 발생:", err);
+               .catch((err: any) => {
+        console.error("인증 실패:", err);
+        alert("인증 에러가 발생했습니다: " + JSON.stringify(err));
+      });
+  } catch (err: any) {
+    console.error("초기화 중 오류 발생:", err);
+    alert("초기화 에러가 발생했습니다: " + JSON.stringify(err));
+  }
+ 
       }
     }
   };
