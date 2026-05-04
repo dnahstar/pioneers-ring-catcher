@@ -206,10 +206,10 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
           alert("결제 에러 발생: " + JSON.stringify(err));
         },
       });
-    } catch (err: any) {
-      alert("함수 호출 실패: " + JSON.stringify(err));
+       } catch (err: any) {
+      // 에러의 메시지 내용을 직접 출력하도록 수정
+      alert("함수 호출 실패 상세: " + (err.message || "메시지 없음") + "\n전체: " + String(err));
     }
-  };
 
 
    useEffect(() => {
