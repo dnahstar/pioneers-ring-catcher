@@ -172,25 +172,47 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
   }
 };
 
- const handleDonation = () => {
-  if (!window.Pi) {
-    alert("파이 브라우저에서 접속해주세요.");
-    return;
-  }
+  const handleDonation = () => {
+    // 1. 가장 먼저 함수 호출 확인용 알림!
+    alert("기부 버튼 클릭됨! SDK 확인 중...");
 
-  const paymentData = {
-    amount: 0.1,
-    memo: "커피 한 잔 기부하기 (0.1 Pi)",
-    metadata: { developer: "levelup25" }
+    if (!window.Pi) {
+      alert("파이 브라우저에서 접속해주세요.");
+      return;
+    }
+
+    alert("SDK 확인 완료! 결제 데이터 생성 중...");
+
+    const paymentData = {
+      amount: 0.1,
+      memo: "커피 한 잔 기부하기 (0.1 Pi)",
+      metadata: { developer: "levelup25" }
+    };
+
+    try {
+      alert("결제 창을 띄웁니다...");
+      window.Pi.createPayment(paymentData, {
+        onReadyForServerApproval: (id: string) => {
+          console.log("결제 승인 대기:", id);
+          alert("서버 승인 대기 중... ID: " + id);
+        },
+        onReadyForServerCompletion: (id: string, tx: string) => {
+          alert("감사합니다! 커피 맛있게 마실게요! ☕");
+        },
+        onCancel: (id: string) => {
+          console.log("결제 취소");
+          alert("결제가 취소되었습니다.");
+        },
+        onError: (err: any, id?: string) => {
+          console.error("결제 에러:", err);
+          alert("결제 중 에러 발생: " + JSON.stringify(err));
+        },
+      });
+    } catch (err: any) {
+      alert("createPayment 호출 실패: " + JSON.stringify(err));
+    }
   };
-// @ts-ignore
-  window.Pi.createPayment(paymentData, {
-    onReadyForServerApproval: (id) => console.log("결제 승인 대기:", id),
-    onReadyForServerCompletion: (id, tx) => alert("감사합니다! 커피 맛있게 마실게요! 😊"),
-    onCancel: (id) => console.log("결제 취소"),
-    onError: (err, id) => console.error("에러 발생:", err)
-  });
-};
+
 
    useEffect(() => {
       const initPi = async () => {
