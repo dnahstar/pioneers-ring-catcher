@@ -132,6 +132,8 @@ useEffect(() => {
   };
 }, [username]); // 118번 줄 끝
 
+// 136번 줄 위쪽에 선언 (리액트 컴포넌트라면 useState 권장)
+const [isVictoryLogged, setIsVictoryLogged] = useState(false); 
 
 const handleSaveScore = async ({ score, username }: { score: number; username: string }) => {
   // 1. 아이디 결정 (우선순위: 전달받은 이름 > Ref 이름 > 기본값)
@@ -153,24 +155,24 @@ const handleSaveScore = async ({ score, username }: { score: number; username: s
       updatedAt: serverTimestamp()
     });
 
-    // 3. 승리 기록 저장 (2000점 이상)
-    if (Number(score) >= 2000) {
-      console.log("🏆 승리 데이터 전송 중...");
-      const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
-      await setDoc(victoryLogRef, {
-        wonAt: serverTimestamp(),
-        score: Number(score),
-        username: actualId
-      });
-      
-      // ✅ 이 알림창이 떠야 백엔드 전송이 성공한 것입니다!
-      alert(`🎉 승리가 기록되었습니다! (ID: ${actualId})`);
+// 157번 줄부터 교체
+if (Number(score) >= 2000 && !isVictoryLogged) {
+    setIsVictoryLogged(true); // 🛡️ 중복 기록 방지 도장 쾅!
+    
+    console.log("🏆 승리 데이터 전송 중...");
+    try {
+        const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
+        await setDoc(victoryLogRef, {
+            wonAt: serverTimestamp(),
+            score: Number(score),
+            username: actualId
+        });
+        // 알림창 예시: alert("승리 기록 완료!");
+    } catch (e) {
+        console.error("기록 실패:", e);
+        setIsVictoryLogged(false); // 실패 시에만 다시 시도 가능하게 리셋
     }
-  } catch (e) {
-    console.error("❌ 전송 실패:", e);
-    alert("데이터 저장 중 오류가 발생했습니다.");
-  }
-};
+}; // <--- 여기에 붙이셔도 괜찮습니다!
 
       const handleDonation = () => {
     const piWindow = window as any;
