@@ -132,47 +132,53 @@ useEffect(() => {
   };
 }, [username]); // 118번 줄 끝
 
-// 136번 줄 위쪽에 선언 (리액트 컴포넌트라면 useState 권장)
+// 1. 함수 밖(컴포넌트 상단)에 선언하여 상태를 유지합니다.
+// 리액트 환경이라면 useState를, 일반 JS라면 let을 사용하세요.
 const [isVictoryLogged, setIsVictoryLogged] = useState(false); 
 
-const handleSaveScore = async ({ score, username }: { score: number; username: string }) => {
-  // 1. 아이디 결정 (우선순위: 전달받은 이름 > Ref 이름 > 기본값)
-  let actualId = username || usernameRef.current || "Pioneer";
-  
-  // 만약 시스템 기본값들이 들어왔다면 강제로 Pioneer로 변경
-  if (actualId === "username" || actualId === "null" || !actualId) {
-    actualId = "Pioneer";
-  }
+// 136번 줄: 함수 시작 지점
+const handleSaveScore = async ({ score, username }) => {
+    // 1. 아이디 결정 (전달받은 이름 > Ref 이름 > 기본값)
+    let actualId = username || usernameRef.current || "Pioneer";
 
-  console.log(`🚀 [저장 시작] 대상: ${actualId}, 점수: ${score}`);
-
-  try {
-    // 2. 모든 플레이 기록 저장 (history)
-    const historyRef = doc(collection(db, "game_results", actualId, "history"));
-    await setDoc(historyRef, {
-      username: actualId,
-      score: Number(score),
-      updatedAt: serverTimestamp()
-    });
-
-// 157번 줄부터 교체
-if (Number(score) >= 2000 && !isVictoryLogged) {
-    setIsVictoryLogged(true); // 🛡️ 중복 기록 방지 도장 쾅!
-    
-    console.log("🏆 승리 데이터 전송 중...");
-    try {
-        const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
-        await setDoc(victoryLogRef, {
-            wonAt: serverTimestamp(),
-            score: Number(score),
-            username: actualId
-        });
-        // 알림창 예시: alert("승리 기록 완료!");
-    } catch (e) {
-        console.error("기록 실패:", e);
-        setIsVictoryLogged(false); // 실패 시에만 다시 시도 가능하게 리셋
+    if (actualId === "username" || actualId === "null" || !actualId) {
+        actualId = "Pioneer";
     }
-}; // <--- 여기에 붙이셔도 괜찮습니다!
+
+    console.log(`🚀 [저장 시작] 대상: ${actualId}, 점수: ${score}`);
+
+    try {
+        // 2. 모든 플레이 기록 저장 (history)
+        const historyRef = doc(collection(db, "game_results", actualId, "history"));
+        await setDoc(historyRef, {
+            username: actualId,
+            score: Number(score),
+            updatedAt: serverTimestamp()
+        });
+
+        // 157번 줄: 승리 기록 저장 (2000점 이상 및 중복 방지)
+        if (Number(score) >= 2000 && !isVictoryLogged) {
+            setIsVictoryLogged(true); // 🛡️ 중복 기록 방지 잠금
+
+            console.log("🏆 승리 데이터 전송 중...");
+            const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
+            await setDoc(victoryLogRef, {
+                wonAt: serverTimestamp(),
+                score: Number(score),
+                username: actualId
+            });
+
+            if (actualId !== "lost n found") {
+                alert(`🎉 ${actualId}님, 2000점 돌파! 승리가 기록되었습니다!`);
+            }
+        }
+    } catch (e) {
+        console.error("저장 중 오류 발생:", e);
+        // 실패했을 경우에만 다시 기록할 수 있도록 잠금을 풉니다.
+        setIsVictoryLogged(false); 
+    }
+};
+
 
       const handleDonation = () => {
     const piWindow = window as any;
