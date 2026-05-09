@@ -132,35 +132,29 @@ useEffect(() => {
   };
 }, [username]); // 118번 줄 끝
 
-// 1. 함수 밖(컴포넌트 상단)에 선언하여 상태를 유지합니다.
-// 리액트 환경이라면 useState를, 일반 JS라면 let을 사용하세요.
-const [isVictoryLogged, setIsVictoryLogged] = useState(false); 
+// [중요] 1. 변수를 함수 '밖'에 선언해야 게임이 끝나도 상태가 유지됩니다!
+let isAlreadySaved = false; 
 
-// 136번 줄: 함수 시작 지점
 const handleSaveScore = async ({ score, username }) => {
-    // 1. 아이디 결정 (전달받은 이름 > Ref 이름 > 기본값)
-    let actualId = username || usernameRef.current || "Pioneer";
+    // 2. 이미 저장 프로세스가 시작되었다면 즉시 함수 종료 (중복 실행 원천 차단)
+    if (isAlreadySaved) {
+        console.log("⚠️ 이미 저장 중이거나 완료되었습니다.");
+        return;
+    }
 
+    let actualId = username || usernameRef.current || "Pioneer";
     if (actualId === "username" || actualId === "null" || !actualId) {
         actualId = "Pioneer";
     }
 
-    console.log(`🚀 [저장 시작] 대상: ${actualId}, 점수: ${score}`);
+    // 3. 점수가 2000점 이상일 때만 로직 실행
+    if (Number(score) >= 2000) {
+        isAlreadySaved = true; // 🛡️ 진입하자마자 문을 잠급니다! (가장 중요)
+        
+        console.log(`🚀 [승리 저장] 대상: ${actualId}, 점수: ${score}`);
 
-    try {
-        // 2. 모든 플레이 기록 저장 (history)
-        const historyRef = doc(collection(db, "game_results", actualId, "history"));
-        await setDoc(historyRef, {
-            username: actualId,
-            score: Number(score),
-            updatedAt: serverTimestamp()
-        });
-
-        // 157번 줄: 승리 기록 저장 (2000점 이상 및 중복 방지)
-        if (Number(score) >= 2000 && !isVictoryLogged) {
-            setIsVictoryLogged(true); // 🛡️ 중복 기록 방지 잠금
-
-            console.log("🏆 승리 데이터 전송 중...");
+        try {
+            // 4. Firestore 저장 실행
             const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
             await setDoc(victoryLogRef, {
                 wonAt: serverTimestamp(),
@@ -171,14 +165,12 @@ const handleSaveScore = async ({ score, username }) => {
             if (actualId !== "lost n found") {
                 alert(`🎉 ${actualId}님, 2000점 돌파! 승리가 기록되었습니다!`);
             }
+        } catch (e) {
+            console.error("저장 오류:", e);
+            isAlreadySaved = false; // 실패했을 때만 다시 시도 가능하게 풉니다.
         }
-    } catch (e) {
-        console.error("저장 중 오류 발생:", e);
-        // 실패했을 경우에만 다시 기록할 수 있도록 잠금을 풉니다.
-        setIsVictoryLogged(false); 
     }
 };
-
 
       const handleDonation = () => {
     const piWindow = window as any;
