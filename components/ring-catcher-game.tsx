@@ -132,29 +132,37 @@ useEffect(() => {
   };
 }, [username]); // 118번 줄 끝
 
-// [중요] 1. 변수를 함수 '밖'에 선언해야 게임이 끝나도 상태가 유지됩니다!
+
+// [최상단] 함수 밖에 선언 (메모리 유지)
 let isAlreadySaved = false; 
 
 const handleSaveScore = async ({ score, username }) => {
-    // 2. 이미 저장 프로세스가 시작되었다면 즉시 함수 종료 (중복 실행 원천 차단)
-    if (isAlreadySaved) {
-        console.log("⚠️ 이미 저장 중이거나 완료되었습니다.");
-        return;
-    }
+    // 1. 이미 이 판의 저장이 완료되었다면 바로 종료
+    if (isAlreadySaved) return;
 
     let actualId = username || usernameRef.current || "Pioneer";
     if (actualId === "username" || actualId === "null" || !actualId) {
         actualId = "Pioneer";
     }
 
-    // 3. 점수가 2000점 이상일 때만 로직 실행
-    if (Number(score) >= 2000) {
-        isAlreadySaved = true; // 🛡️ 진입하자마자 문을 잠급니다! (가장 중요)
-        
-        console.log(`🚀 [승리 저장] 대상: ${actualId}, 점수: ${score}`);
+    // 2. 함수 시작과 동시에 잠금을 걸어버립니다. (중복 진입 원천 봉쇄)
+    // 일반 기록이 한 판에 한 번만 되어야 하므로 여기서 잠그는 게 맞습니다!
+    isAlreadySaved = true; 
 
-        try {
-            // 4. Firestore 저장 실행
+    try {
+        console.log(`🚀 [저장 프로세스 시작] 대상: ${actualId}, 점수: ${score}`);
+
+        // 3. 모든 플레이 기록 저장 (history)
+        const historyRef = doc(collection(db, "game_results", actualId, "history"));
+        await setDoc(historyRef, {
+            username: actualId,
+            score: Number(score),
+            updatedAt: serverTimestamp()
+        });
+
+        // 4. 승리 기록 저장 (2000점 이상일 때만)
+        if (Number(score) >= 2000) {
+            console.log("🏆 승리 조건 충족! 데이터 전송 중...");
             const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
             await setDoc(victoryLogRef, {
                 wonAt: serverTimestamp(),
@@ -165,10 +173,11 @@ const handleSaveScore = async ({ score, username }) => {
             if (actualId !== "lost n found") {
                 alert(`🎉 ${actualId}님, 2000점 돌파! 승리가 기록되었습니다!`);
             }
-        } catch (e) {
-            console.error("저장 오류:", e);
-            isAlreadySaved = false; // 실패했을 때만 다시 시도 가능하게 풉니다.
         }
+    } catch (e) {
+        console.error("저장 중 오류 발생:", e);
+        // 저장에 완전히 실패했을 때만 잠금을 풀어 다시 시도하게 합니다.
+        isAlreadySaved = false; 
     }
 };
 
