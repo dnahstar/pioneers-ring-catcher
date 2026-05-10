@@ -17,7 +17,7 @@ const RING_OUTER_RADIUS = 40
 const RING_INNER_RADIUS = 20
 const RING_THICKNESS = 20
 const INITIAL_DROP_SPEED = 2
-const INITIAL_LIVES = 5ㅐ
+const INITIAL_LIVES = 5
 const CATCH_TOLERANCE = 15
 
 interface Ring {
