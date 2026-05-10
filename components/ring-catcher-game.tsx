@@ -132,30 +132,20 @@ useEffect(() => {
   };
 }, [username]); // 118번 줄 끝
 
-
-
-// 컴포넌트 내부 상단에 추가하세요.
-const isSavingRef = useRef(false); 
+// 컴포넌트 상단
+const isSavingRef = useRef(false);
 
 const handleSaveScore = async ({ score, username }) => {
-    // 1. useRef를 사용하여 즉시 물리적인 차단막을 칩니다.
-    if (isSavingRef.current) {
-        console.log("⚠️ 이미 저장 프로세스가 진행 중입니다. 두 번째 요청을 무시합니다.");
-        return;
-    }
-
-    // 2. 들어오자마자 'true'로 바꿔서 문을 잠급니다. (가장 중요!)
-    isSavingRef.current = true;
-
+    // 1. 아이디 결정 로직 (기존과 동일)
     let actualId = username || usernameRef.current || "Pioneer";
     if (actualId === "username" || actualId === "null" || !actualId) {
         actualId = "Pioneer";
     }
 
     try {
-        console.log(`🚀 [저장 시작] 대상: ${actualId}, 점수: ${score}`);
+        console.log(`🚀 [저장 프로세스 시작] 대상: ${actualId}, 점수: ${score}`);
 
-        // 3. 일반 기록 저장 (history)
+        // 2. 모든 플레이 기록 저장 (history) - 이건 먼저 수행
         const historyRef = doc(collection(db, "game_results", actualId, "history"));
         await setDoc(historyRef, {
             username: actualId,
@@ -163,8 +153,18 @@ const handleSaveScore = async ({ score, username }) => {
             updatedAt: serverTimestamp()
         });
 
-        // 4. 승리 기록 저장 (2000점 이상일 때만)
+        // 3. 승리 기록 저장 (2000점 이상일 때만)
         if (Number(score) >= 2000) {
+            // ⭐ 여기서 중복 체크를 합니다!
+            if (isSavingRef.current) {
+                console.log("⚠️ 이미 승리 기록이 처리 중입니다.");
+                return;
+            }
+            
+            // 승리 기록 직전에 잠금!
+            isSavingRef.current = true; 
+
+            console.log("🏆 승리 조건 충족! 데이터 전송 중...");
             const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
             await setDoc(victoryLogRef, {
                 wonAt: serverTimestamp(),
@@ -178,11 +178,9 @@ const handleSaveScore = async ({ score, username }) => {
         }
     } catch (e) {
         console.error("저장 중 오류 발생:", e);
-        // 정말 에러가 났을 때만 다시 시도할 수 있게 풉니다.
+        // 에러 시에만 잠금을 풀어줍니다.
         isSavingRef.current = false; 
     }
-    // 성공 시에는 isSavingRef.current를 false로 돌리지 않습니다. 
-    // (한 판에 단 한 번만 실행되게 하기 위함)
 };
 
       const handleDonation = () => {
