@@ -133,26 +133,29 @@ useEffect(() => {
 }, [username]); // 118번 줄 끝
 
 
-// [최상단] 함수 밖에 선언 (메모리 유지)
-let isAlreadySaved = false; 
+
+// 컴포넌트 내부 상단에 추가하세요.
+const isSavingRef = useRef(false); 
 
 const handleSaveScore = async ({ score, username }) => {
-    // 1. 이미 이 판의 저장이 완료되었다면 바로 종료
-    if (isAlreadySaved) return;
+    // 1. useRef를 사용하여 즉시 물리적인 차단막을 칩니다.
+    if (isSavingRef.current) {
+        console.log("⚠️ 이미 저장 프로세스가 진행 중입니다. 두 번째 요청을 무시합니다.");
+        return;
+    }
+
+    // 2. 들어오자마자 'true'로 바꿔서 문을 잠급니다. (가장 중요!)
+    isSavingRef.current = true;
 
     let actualId = username || usernameRef.current || "Pioneer";
     if (actualId === "username" || actualId === "null" || !actualId) {
         actualId = "Pioneer";
     }
 
-    // 2. 함수 시작과 동시에 잠금을 걸어버립니다. (중복 진입 원천 봉쇄)
-    // 일반 기록이 한 판에 한 번만 되어야 하므로 여기서 잠그는 게 맞습니다!
-    isAlreadySaved = true; 
-
     try {
-        console.log(`🚀 [저장 프로세스 시작] 대상: ${actualId}, 점수: ${score}`);
+        console.log(`🚀 [저장 시작] 대상: ${actualId}, 점수: ${score}`);
 
-        // 3. 모든 플레이 기록 저장 (history)
+        // 3. 일반 기록 저장 (history)
         const historyRef = doc(collection(db, "game_results", actualId, "history"));
         await setDoc(historyRef, {
             username: actualId,
@@ -162,7 +165,6 @@ const handleSaveScore = async ({ score, username }) => {
 
         // 4. 승리 기록 저장 (2000점 이상일 때만)
         if (Number(score) >= 2000) {
-            console.log("🏆 승리 조건 충족! 데이터 전송 중...");
             const victoryLogRef = doc(collection(db, "game_results", actualId, "victories"));
             await setDoc(victoryLogRef, {
                 wonAt: serverTimestamp(),
@@ -176,9 +178,11 @@ const handleSaveScore = async ({ score, username }) => {
         }
     } catch (e) {
         console.error("저장 중 오류 발생:", e);
-        // 저장에 완전히 실패했을 때만 잠금을 풀어 다시 시도하게 합니다.
-        isAlreadySaved = false; 
+        // 정말 에러가 났을 때만 다시 시도할 수 있게 풉니다.
+        isSavingRef.current = false; 
     }
+    // 성공 시에는 isSavingRef.current를 false로 돌리지 않습니다. 
+    // (한 판에 단 한 번만 실행되게 하기 위함)
 };
 
       const handleDonation = () => {
