@@ -17,7 +17,7 @@ const RING_OUTER_RADIUS = 40
 const RING_INNER_RADIUS = 20
 const RING_THICKNESS = 20
 const INITIAL_DROP_SPEED = 2
-const INITIAL_LIVES = 5
+const INITIAL_LIVES = 5ㅐ
 const CATCH_TOLERANCE = 15
 
 interface Ring {
@@ -805,6 +805,10 @@ window.addEventListener('click', playOnAction);
   }, [score, caughtCount, isPlaying, highScore, stopBackgroundMusic, username])
 
   const startGame = useCallback(() => {
+
+// 🌟 이 한 줄이 핵심입니다! 파수꾼에게 "새 게임이니까 문 열어줘"라고 말하는 거예요.
+    isSavingRef.current = false; 
+
     setScore(0)
     setLives(INITIAL_LIVES)
     setIsGameOver(false)
